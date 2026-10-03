@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShipForge — Ship Design &amp; Sea Trial Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1318;
+    --bg-alt:#141B22;
+    --panel:#1A232B;
+    --panel-2:#202B34;
+    --line:#233642;
+    --grid-line: rgba(73,199,224,0.08);
+    --cyan:#49C7E0;
+    --cyan-dim: rgba(73,199,224,0.35);
+    --steel:#8B96A1;
+    --steel-light:#DCE3E8;
+    --amber:#F2A93B;
+    --green:#3ED598;
+    --red:#F2543D;
+    --rivet:#33404A;
+    --radius: 3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--steel-light);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  ::selection{background:var(--cyan-dim);}
+  h1,h2,h3,.display{
+    font-family:'Oswald',sans-serif;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    font-weight:600;
+    margin:0;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  button{font-family:'Inter',sans-serif; cursor:pointer;}
+  .app{position:relative; min-height:100vh; width:100%;}
+
+  .bp-bg{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity:0.9;
+  }
+  .bp-bg::after{
+    content:"";
+    position:absolute; inset:0;
+    background: radial-gradient(ellipse at 20% 0%, rgba(73,199,224,0.06), transparent 55%),
+                radial-gradient(ellipse at 90% 100%, rgba(242,169,59,0.04), transparent 50%);
+  }
+
+  .topbar{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; gap:18px;
+    padding:12px 22px;
+    background:rgba(14,19,24,0.92);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{
+    display:flex; align-items:center; gap:8px;
+    font-family:'Oswald',sans-serif; font-weight:700; letter-spacing:0.06em;
+    color:var(--steel-light); font-size:15px; white-space:nowrap;
+  }
+  .brand .dot{width:8px;height:8px;background:var(--cyan);border-radius:1px; transform:rotate(45deg); box-shadow:0 0 8px var(--cyan);}
+  .stepper{display:flex; align-items:center; gap:2px; overflow-x:auto; flex:1; scrollbar-width:none;}
+  .stepper::-webkit-scrollbar{display:none;}
+  .step{
+    display:flex; align-items:center; gap:6px;
+    padding:6px 10px; border-radius:2px; white-space:nowrap;
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:0.03em;
+    color:var(--steel); border:1px solid transparent;
+  }
+  .step .n{color:var(--steel); border:1px solid var(--rivet); width:16px;height:16px;border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:9px;}
+  .step.done{color:var(--green);}
+  .step.done .n{border-color:var(--green); color:var(--green);}
+  .step.active{color:var(--cyan);}
+  .step.active .n{border-color:var(--cyan); color:var(--cyan); box-shadow:0 0 6px rgba(73,199,224,0.5);}
+  .step-sep{width:14px; height:1px; background:var(--rivet); flex-shrink:0;}
+  .hud-mini{display:flex; gap:14px; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--steel);}
+  .hud-mini b{color:var(--cyan-light,var(--cyan));}
+  .auth-area{display:flex; align-items:center; white-space:nowrap;}
+  .auth-btn{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--steel); border:1px solid var(--rivet); padding:5px 10px; border-radius:2px; cursor:pointer; background:transparent;}
+  .auth-btn:hover{border-color:var(--cyan); color:var(--cyan);}
+
+  .screen{display:none; position:relative; z-index:1; padding:40px 24px 90px; max-width:1180px; margin:0 auto; animation:fadeIn 0.4s ease;}
+  .screen.active{display:block;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace; color:var(--cyan); font-size:11px;
+    letter-spacing:0.15em; margin-bottom:10px; display:flex; align-items:center; gap:8px;
+  }
+  .eyebrow::before{content:""; width:18px; height:1px; background:var(--cyan);}
+  .title-xl{font-size:clamp(34px,6vw,64px); line-height:1.02; color:var(--steel-light);}
+  .title-xl .accent{color:var(--cyan);}
+  .sub{color:var(--steel); font-size:15px; line-height:1.6; max-width:600px; margin-top:14px;}
+
+  .btn{
+    border:1px solid var(--rivet); background:var(--panel-2); color:var(--steel-light);
+    padding:12px 22px; border-radius:2px; font-size:13px; font-weight:600;
+    letter-spacing:0.04em; text-transform:uppercase; font-family:'Oswald',sans-serif;
+    transition:all .15s ease; display:inline-flex; align-items:center; gap:8px;
+  }
+  .btn:hover{border-color:var(--cyan); color:var(--cyan); box-shadow:0 0 0 1px var(--cyan) inset;}
+  .btn.primary{background:var(--cyan); color:#0A1216; border-color:var(--cyan);}
+  .btn.primary:hover{background:#5FD4EB; box-shadow:0 0 20px rgba(73,199,224,0.35);}
+  .btn.ghost{background:transparent;}
+  .btn.danger{border-color:var(--red); color:var(--red);}
+  .btn.danger:hover{background:rgba(242,84,61,0.1); box-shadow:0 0 0 1px var(--red) inset;}
+  .btn:disabled{opacity:0.35; cursor:not-allowed; pointer-events:none;}
+  .btn-row{display:flex; gap:12px; margin-top:26px; flex-wrap:wrap;}
+
+  .home-hero{display:grid; grid-template-columns:1.1fr 1fr; gap:50px; align-items:center; padding-top:10px;}
+  @media(max-width:860px){.home-hero{grid-template-columns:1fr;}}
+  .hull-diagram{position:relative;}
+  .hull-diagram svg{width:100%; height:auto; overflow:visible;}
+  .scan-line{position:absolute; left:0; right:0; height:1px; background:linear-gradient(90deg, transparent, var(--cyan), transparent); animation:scan 3.2s ease-in-out infinite; opacity:0.8;}
+  @keyframes scan{0%{top:6%;} 50%{top:92%;} 100%{top:6%;}}
+
+  .flow-steps{display:flex; flex-wrap:wrap; gap:8px; margin-top:30px;}
+  .flow-chip{
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--steel);
+    border:1px solid var(--rivet); padding:6px 10px; border-radius:2px; display:flex; align-items:center; gap:6px;
+  }
+  .flow-chip b{color:var(--cyan);}
+  .flow-arrow{color:var(--rivet); align-self:center;}
+
+  .howto-panel{margin-top:20px; padding:16px 18px; background:var(--panel); border:1px solid var(--line); border-radius:2px; display:none;}
+  .howto-panel.open{display:block;}
+  .howto-panel ol{margin:8px 0 0; padding-left:18px; color:var(--steel); font-size:13.5px; line-height:1.9;}
+  .howto-panel li b{color:var(--steel-light);}
+
+  .type-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; margin-top:28px;}
+  .type-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:18px;
+    cursor:pointer; transition:all .15s ease; position:relative;
+  }
+  .type-card:hover{border-color:var(--cyan-dim); transform:translateY(-2px);}
+  .type-card.selected{border-color:var(--cyan); box-shadow:0 0 0 1px var(--cyan) inset, 0 0 20px rgba(73,199,224,0.12);}
+  .type-card .icon{font-size:26px; margin-bottom:10px; display:block;}
+  .type-card h3{font-size:16px; color:var(--steel-light);}
+  .type-card p{font-size:12px; color:var(--steel); margin:8px 0 12px; line-height:1.6; min-height:48px;}
+  .focus-tags{display:flex; flex-wrap:wrap; gap:5px;}
+  .focus-tag{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--amber); border:1px solid rgba(242,169,59,0.35); padding:2px 6px; border-radius:2px;}
+  .mission-brief{margin-top:26px; padding:16px 18px; background:var(--panel); border-left:2px solid var(--cyan); border-radius:0 2px 2px 0; display:none; font-size:13px; color:var(--steel); line-height:1.7;}
+  .mission-brief.show{display:block;}
+  .mission-brief b{color:var(--cyan);}
+
+  .builder-grid{display:grid; grid-template-columns:220px 1fr 260px; gap:16px; margin-top:22px;}
+  @media(max-width:1000px){.builder-grid{grid-template-columns:1fr;}}
+  .panel-box{background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:14px;}
+  .panel-title{font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:0.1em; color:var(--steel); margin-bottom:12px; display:flex; justify-content:space-between;}
+  .panel-title span{color:var(--cyan);}
+
+  .part-item{
+    display:flex; align-items:center; gap:9px; padding:9px 8px; margin-bottom:6px;
+    background:var(--panel-2); border:1px solid var(--rivet); border-radius:2px; cursor:grab; font-size:12px;
+  }
+  .part-item:active{cursor:grabbing;}
+  .part-item .ic{font-size:15px;}
+  .part-item small{display:block; color:var(--steel); font-size:9.5px; font-family:'IBM Plex Mono',monospace;}
+
+  .material-select{display:flex; flex-direction:column; gap:5px; margin-top:8px;}
+  .mat-opt{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:7px 9px; border:1px solid var(--rivet); border-radius:2px; font-size:11.5px; cursor:pointer; color:var(--steel);
+  }
+  .mat-opt.active{border-color:var(--cyan); color:var(--cyan-light,var(--steel-light)); background:rgba(73,199,224,0.06);}
+  .mat-opt span.tag{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--steel);}
+
+  .blueprint-wrap{background:var(--bg-alt); border:1px solid var(--line); border-radius:3px; padding:14px; display:flex; flex-direction:column;}
+  .blueprint-grid{
+    flex:1; display:grid; grid-template-columns:repeat(10,1fr); grid-template-rows:repeat(5,1fr);
+    gap:3px; background:var(--line); border:1px solid var(--line); min-height:340px; position:relative;
+  }
+  .cell{background:#101820; position:relative; display:flex; align-items:center; justify-content:center; min-height:56px; transition:background .1s;}
+  .cell.dragover{background:rgba(73,199,224,0.15); outline:1px dashed var(--cyan);}
+  .cell .placed{display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; font-size:18px; position:relative;}
+  .cell .placed small{font-size:8px; font-family:'IBM Plex Mono',monospace; color:var(--steel); margin-top:2px;}
+  .cell .rm{position:absolute; top:1px; right:2px; font-size:9px; color:var(--red); display:none; cursor:pointer;}
+  .cell:hover .rm{display:block;}
+  .ship-name-row{display:flex; gap:10px; align-items:center; margin-top:12px;}
+  .ship-name-row input{
+    flex:1; background:var(--panel-2); border:1px solid var(--rivet); color:var(--steel-light);
+    padding:9px 10px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; border-radius:2px;
+  }
+  .ship-name-row input:focus{outline:none; border-color:var(--cyan);}
+
+  .gauge{margin-bottom:13px;}
+  .gauge-top{display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--steel); margin-bottom:4px;}
+  .gauge-top b{color:var(--steel-light); font-weight:600;}
+  .gauge-bar{height:5px; background:var(--panel-2); border-radius:2px; overflow:hidden; border:1px solid var(--rivet);}
+  .gauge-fill{height:100%; background:var(--cyan); transition:width .3s ease;}
+  .gauge-fill.warn{background:var(--amber);}
+  .gauge-fill.bad{background:var(--red);}
+  .gauge-fill.good{background:var(--green);}
+
+  .inspect-wrap{display:grid; grid-template-columns:1fr 340px; gap:24px; margin-top:26px;}
+  @media(max-width:860px){.inspect-wrap{grid-template-columns:1fr;}}
+  .check-row{display:flex; align-items:center; justify-content:space-between; padding:13px 14px; border:1px solid var(--line); border-radius:2px; margin-bottom:8px; background:var(--panel);}
+  .check-row .lbl{font-size:13px; color:var(--steel-light);}
+  .check-row .val{font-family:'IBM Plex Mono',monospace; font-size:12px;}
+  .check-row .status{font-size:15px;}
+  .status.pass{color:var(--green);}
+  .status.fail{color:var(--red);}
+  .score-card{background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:24px; text-align:center; height:fit-content;}
+  .score-ring{width:150px; height:150px; margin:10px auto 6px; position:relative;}
+  .score-num{font-family:'Oswald',sans-serif; font-size:38px; font-weight:700;}
+  .score-lbl{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--steel); letter-spacing:0.1em; margin-top:2px;}
+  .badge{display:inline-block; margin-top:14px; padding:6px 16px; border-radius:2px; font-family:'Oswald',sans-serif; letter-spacing:0.06em; font-size:12px; text-transform:uppercase;}
+  .badge.approved{background:rgba(62,213,152,0.12); color:var(--green); border:1px solid var(--green);}
+  .badge.rejected{background:rgba(242,84,61,0.12); color:var(--red); border:1px solid var(--red);}
+  .issue-list{text-align:left; margin-top:16px; font-size:12px; color:var(--steel); line-height:1.8;}
+  .issue-list li{margin-bottom:4px;}
+
+  .launch-summary{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:26px;}
+  @media(max-width:760px){.launch-summary{grid-template-columns:repeat(2,1fr);}}
+  .sum-card{background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:16px;}
+  .sum-card .lbl{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--steel); letter-spacing:0.1em;}
+  .sum-card .val{font-family:'Oswald',sans-serif; font-size:20px; margin-top:6px; color:var(--steel-light);}
+  .dock-scene{margin-top:30px; height:180px; border:1px solid var(--line); border-radius:3px; background:linear-gradient(180deg,#0E1318 0%,#132029 100%); position:relative; overflow:hidden; display:flex; align-items:flex-end; justify-content:center;}
+  .dock-scene .ship-emoji{font-size:54px; transition:transform 1.2s ease, opacity 1s ease; margin-bottom:18px; filter:drop-shadow(0 0 10px rgba(73,199,224,0.3));}
+  .dock-scene.launching .ship-emoji{transform:translateX(140%) translateY(-6px); opacity:0.15;}
+  .water-line{position:absolute; bottom:0; left:0; right:0; height:34px; background:repeating-linear-gradient(90deg, rgba(73,199,224,0.12) 0 20px, transparent 20px 40px); border-top:1px solid var(--cyan-dim);}
+  .launch-log{margin-top:18px; background:var(--bg-alt); border:1px solid var(--line); border-radius:3px; padding:14px; font-family:'IBM Plex Mono',monospace; font-size:12px; min-height:150px;}
+  .launch-log .ln{color:var(--steel); opacity:0; transform:translateX(-6px); animation:logIn .35s forwards; margin-bottom:6px;}
+  .launch-log .ln b{color:var(--green);}
+  @keyframes logIn{to{opacity:1; transform:translateX(0);}}
+
+  .trial-layout{display:grid; grid-template-columns:1fr 300px; gap:20px; margin-top:22px;}
+  @media(max-width:900px){.trial-layout{grid-template-columns:1fr;}}
+  .sea-scene{
+    height:260px; border-radius:3px; border:1px solid var(--line); position:relative; overflow:hidden;
+    background:linear-gradient(180deg,#0B141B 0%, #0E2530 65%, #123245 100%);
+  }
+  .sea-scene .stars{position:absolute; inset:0; background-image:radial-gradient(1px 1px at 20% 20%, rgba(255,255,255,0.4), transparent), radial-gradient(1px 1px at 70% 10%, rgba(255,255,255,0.3), transparent), radial-gradient(1px 1px at 40% 30%, rgba(255,255,255,0.3), transparent);}
+  .wave{position:absolute; left:-10%; width:120%; height:40px; opacity:0.5;}
+  .wave1{bottom:36px; background:repeating-linear-gradient(90deg, rgba(73,199,224,0.18) 0 24px, transparent 24px 48px); animation:waveMove 6s linear infinite;}
+  .wave2{bottom:14px; background:repeating-linear-gradient(90deg, rgba(73,199,224,0.28) 0 30px, transparent 30px 60px); animation:waveMove 4s linear infinite reverse;}
+  @keyframes waveMove{from{transform:translateX(0);} to{transform:translateX(-48px);}}
+  .boat{position:absolute; bottom:44px; left:8%; font-size:38px; animation:bob 2.2s ease-in-out infinite; filter:drop-shadow(0 0 8px rgba(73,199,224,0.25)); transition:left 0.4s linear;}
+  @keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg);} 50%{transform:translateY(-6px) rotate(2deg);}}
+  .event-flash{position:absolute; inset:0; background:rgba(242,84,61,0.18); opacity:0; pointer-events:none; transition:opacity .25s;}
+  .event-flash.show{opacity:1;}
+  .trial-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px;}
+  .tstat{background:var(--panel); border:1px solid var(--line); border-radius:2px; padding:10px 12px;}
+  .tstat .lbl{font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--steel); letter-spacing:0.08em;}
+  .tstat .val{font-family:'Oswald',sans-serif; font-size:18px; margin-top:4px;}
+  .event-log{background:var(--bg-alt); border:1px solid var(--line); border-radius:3px; padding:12px; margin-top:14px; height:150px; overflow-y:auto; font-family:'IBM Plex Mono',monospace; font-size:11px;}
+  .event-log .en{padding:4px 0; border-bottom:1px solid var(--line); color:var(--steel);}
+  .event-log .en.warn{color:var(--amber);}
+  .event-log .en.bad{color:var(--red);}
+  .event-log .en.good{color:var(--green);}
+  .trial-side .panel-box{margin-bottom:14px;}
+  .status-line{display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:12px; color:var(--steel);}
+  .status-line b{color:var(--steel-light);}
+
+  .result-top{display:flex; gap:24px; align-items:center; margin-top:24px; flex-wrap:wrap;}
+  .grade-badge{width:120px; height:120px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:'Oswald',sans-serif; font-size:56px; font-weight:700; border:2px solid var(--cyan); flex-shrink:0;}
+  .grade-S{border-color:var(--green); color:var(--green); box-shadow:0 0 30px rgba(62,213,152,0.25);}
+  .grade-A{border-color:var(--cyan); color:var(--cyan);}
+  .grade-B{border-color:var(--steel-light); color:var(--steel-light);}
+  .grade-C{border-color:var(--amber); color:var(--amber);}
+  .grade-D{border-color:var(--red); color:var(--red);}
+  .grade-desc{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--steel); letter-spacing:0.06em; margin-top:6px;}
+  .result-stats{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:28px;}
+  @media(max-width:760px){.result-stats{grid-template-columns:repeat(2,1fr);}}
+  .rstat{background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:14px;}
+  .rstat .lbl{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--steel);}
+  .rstat .val{font-family:'Oswald',sans-serif; font-size:21px; margin-top:6px;}
+  .reason-box{margin-top:26px; background:var(--panel); border-left:2px solid var(--amber); border-radius:0 2px 2px 0; padding:16px 18px;}
+  .reason-box h3{font-size:13px; color:var(--amber); letter-spacing:0.05em;}
+  .reason-box ul{margin:10px 0 0; padding-left:18px; font-size:13px; color:var(--steel); line-height:1.8;}
+
+  footer.credit{text-align:center; padding:24px; color:var(--rivet); font-family:'IBM Plex Mono',monospace; font-size:10px;}
+
+  .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:200;}
+  .modal-overlay.show{display:flex;}
+  .modal-box{background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:24px; width:320px; max-width:90vw;}
+  .modal-box h3{margin-bottom:14px; font-size:16px;}
+  .modal-box input{width:100%; margin-bottom:10px; background:var(--panel-2); border:1px solid var(--rivet); color:var(--steel-light); padding:9px 10px; border-radius:2px; font-family:'IBM Plex Mono',monospace; font-size:12.5px;}
+  .modal-box .err{color:var(--red); font-size:12px; margin-bottom:8px; display:none;}
+  .modal-tabs{display:flex; gap:8px; margin-bottom:14px;}
+  .modal-tabs button{flex:1; background:var(--panel-2); border:1px solid var(--rivet); color:var(--steel); padding:7px; border-radius:2px; font-family:'Oswald',sans-serif; font-size:11px; text-transform:uppercase; cursor:pointer;}
+  .modal-tabs button.active{border-color:var(--cyan); color:var(--cyan);}
+  .ships-list{max-height:260px; overflow-y:auto;}
+  .ships-list .srow{display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border:1px solid var(--line); border-radius:2px; margin-bottom:6px; cursor:pointer; font-size:12.5px;}
+  .ships-list .srow:hover{border-color:var(--cyan);}
+</style>
+</head>
+<body>
+<div class="bp-bg"></div>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span>SHIPFORGE</div>
+    <div class="stepper" id="stepper"></div>
+    <div class="hud-mini" id="hudMini"></div>
+    <div class="auth-area" id="authArea"></div>
+  </div>
+
+  <!-- 1. HOME -->
+  <section class="screen active" id="screen-home">
+    <div class="home-hero">
+      <div>
+        <div class="eyebrow">DRY DOCK SIMULATION SYSTEM</div>
+        <h1 class="title-xl">SHIP<span class="accent">FORGE</span></h1>
+        <p class="sub">ระบบจำลองการออกแบบ ต่อเรือ และทดสอบเรือกลางทะเล เลือกภารกิจ วางโครงสร้างลงบน Blueprint คำนวณค่าความปลอดภัยแบบ real-time แล้วปล่อยเรือลงทดสอบในทะเลจริง</p>
+        <div class="btn-row">
+          <button class="btn primary" onclick="goTo('mission')">เริ่มต่อเรือ →</button>
+          <button class="btn ghost" onclick="toggleHowTo()">วิธีการใช้งาน</button>
+        </div>
+        <div class="howto-panel" id="howtoPanel">
+          <div class="eyebrow" style="margin-bottom:0;">ขั้นตอนการทำงาน</div>
+          <ol>
+            <li><b>เลือกภารกิจ</b> — เลือกประเภทเรือตามวัตถุประสงค์การใช้งาน</li>
+            <li><b>ออกแบบ</b> — เลือกวัสดุและลากชิ้นส่วนวางบน Blueprint</li>
+            <li><b>ตรวจสอบ</b> — รัน Final Inspection ก่อนอนุมัติเรือ</li>
+            <li><b>ปล่อยเรือ</b> — ยืนยันและชมลำดับการปล่อยเรือ</li>
+            <li><b>เดินเรือ</b> — ทดสอบเรือกลางทะเลพร้อมเหตุการณ์สุ่ม</li>
+            <li><b>ดูผลลัพธ์</b> — รับเกรดและวิเคราะห์จุดที่ควรปรับปรุง</li>
+            <li><b>ปรับปรุง</b> — กลับไปแก้ Blueprint แล้วทดสอบใหม่ได้ไม่จำกัด</li>
+          </ol>
+        </div>
+        <div class="flow-steps">
+          <div class="flow-chip"><b>01</b> เลือกเรือ</div><div class="flow-arrow">→</div>
+          <div class="flow-chip"><b>02</b> ออกแบบ</div><div class="flow-arrow">→</div>
+          <div class="flow-chip"><b>03</b> สร้าง</div><div class="flow-arrow">→</div>
+          <div class="flow-chip"><b>04</b> ตรวจสอบ</div><div class="flow-arrow">→</div>
+          <div class="flow-chip"><b>05</b> ปล่อยเรือ</div><div class="flow-arrow">→</div>
+          <div class="flow-chip"><b>06</b> เดินเรือ</div><div class="flow-arrow">→</div>
+          <div class="flow-chip"><b>07</b> ผลลัพธ์</div>
+        </div>
+      </div>
+      <div class="hull-diagram">
+        <div class="scan-line"></div>
+        <svg viewBox="0 0 420 260" fill="none" stroke="var(--cyan)" stroke-width="1">
+          <path d="M30 150 Q30 190 90 195 L330 195 Q390 190 390 150 L390 90 L30 90 Z" stroke-opacity="0.7"/>
+          <line x1="30" y1="90" x2="30" y2="60" stroke-opacity="0.35"/>
+          <line x1="390" y1="90" x2="390" y2="60" stroke-opacity="0.35"/>
+          <path d="M30 90 L60 55 L360 55 L390 90" stroke-opacity="0.5"/>
+          <rect x="150" y="30" width="70" height="30" stroke-opacity="0.6"/>
+          <line x1="60" y1="90" x2="60" y2="195" stroke-dasharray="2 3" stroke-opacity="0.25"/>
+          <line x1="150" y1="90" x2="150" y2="195" stroke-dasharray="2 3" stroke-opacity="0.25"/>
+          <line x1="270" y1="90" x2="270" y2="195" stroke-dasharray="2 3" stroke-opacity="0.25"/>
+          <line x1="360" y1="90" x2="360" y2="195" stroke-dasharray="2 3" stroke-opacity="0.25"/>
+          <line x1="20" y1="90" x2="20" y2="195" stroke-opacity="0.4"/>
+          <line x1="14" y1="90" x2="26" y2="90" stroke-opacity="0.4"/>
+          <line x1="14" y1="195" x2="26" y2="195" stroke-opacity="0.4"/>
+          <text x="4" y="145" fill="var(--cyan)" stroke="none" font-family="IBM Plex Mono" font-size="9" transform="rotate(-90 10,145)">HULL DEPTH</text>
+          <line x1="30" y1="215" x2="390" y2="215" stroke-opacity="0.4"/>
+          <text x="180" y="230" fill="var(--cyan)" stroke="none" font-family="IBM Plex Mono" font-size="9">LOA — LENGTH OVERALL</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. MISSION -->
+  <section class="screen" id="screen-mission">
+    <div class="eyebrow">STAGE 01 — MISSION BRIEF</div>
+    <h2 class="title-xl" style="font-size:38px;">เลือกจุดประสงค์ &amp; ประเภทเรือ</h2>
+    <p class="sub">แต่ละภารกิจต้องการคุณสมบัติของเรือที่แตกต่างกัน เลือกให้เหมาะกับเป้าหมาย</p>
+    <div class="type-grid" id="typeGrid"></div>
+    <div class="mission-brief" id="missionBrief"></div>
+    <div class="btn-row">
+      <button class="btn ghost" onclick="goTo('home')">← ย้อนกลับ</button>
+      <button class="btn primary" id="toBuilderBtn" onclick="goTo('builder')" disabled>ไปยัง Ship Builder →</button>
+    </div>
+  </section>
+
+  <!-- 3. BUILDER -->
+  <section class="screen" id="screen-builder">
+    <div class="eyebrow">STAGE 02–03 — BLUEPRINT / SHIP BUILDER</div>
+    <h2 class="title-xl" style="font-size:34px;">ออกแบบและต่อเรือ</h2>
+    <p class="sub" id="builderMissionNote"></p>
+
+    <div class="builder-grid">
+      <div class="panel-box">
+        <div class="panel-title">ชิ้นส่วน <span>ลากวางบน Blueprint</span></div>
+        <div id="partsPalette"></div>
+        <div class="panel-title" style="margin-top:16px;">วัสดุตัวเรือ</div>
+        <div class="material-select" id="materialSelect"></div>
+      </div>
+
+      <div class="blueprint-wrap">
+        <div class="panel-title">BLUEPRINT — TOP VIEW <span id="cellCount">0/50 CELLS</span></div>
+        <div class="blueprint-grid" id="blueprintGrid"></div>
+        <div class="ship-name-row">
+          <input type="text" id="shipNameInput" placeholder="ตั้งชื่อเรือของคุณ..." maxlength="24">
+        </div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn" onclick="saveShipToAccount()">💾 Save to Account</button>
+          <button class="btn" onclick="openShipsModal()">📂 My Ships</button>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">LIVE READOUT</div>
+        <div id="gaugesBox"></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn ghost" onclick="goTo('mission')">← ย้อนกลับ</button>
+      <button class="btn primary" onclick="goTo('inspection')">ไปตรวจสอบความปลอดภัย →</button>
+    </div>
+  </section>
+
+  <!-- 4. INSPECTION -->
+  <section class="screen" id="screen-inspection">
+    <div class="eyebrow">STAGE 04 — SAFETY INSPECTION</div>
+    <h2 class="title-xl" style="font-size:34px;">ตรวจสอบก่อนปล่อยเรือ</h2>
+    <p class="sub">กด Run Final Inspection เพื่อวิเคราะห์เรือของคุณก่อนนำลงทะเล</p>
+    <div class="btn-row" style="margin-top:18px;">
+      <button class="btn primary" onclick="runInspection()">▶ Run Final Inspection</button>
+    </div>
+
+    <div class="inspect-wrap" id="inspectWrap" style="display:none;">
+      <div>
+        <div id="checksList"></div>
+        <ul class="issue-list" id="issueList"></ul>
+      </div>
+      <div class="score-card">
+        <div class="score-lbl">OVERALL SAFETY SCORE</div>
+        <div class="score-num" id="scoreNum">--</div>
+        <div class="badge" id="approvalBadge"></div>
+        <button class="btn" style="margin-top:14px; width:100%;" onclick="verifyViaServer()">🌐 Verify via Server</button>
+        <div id="serverVerifyResult" style="margin-top:10px; font-size:11.5px; font-family:'IBM Plex Mono',monospace;"></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn ghost" onclick="goTo('builder')">← กลับไปแก้ Blueprint</button>
+      <button class="btn primary" id="toLaunchBtn" onclick="goTo('launch')" disabled>ไปยัง Launch Sequence →</button>
+    </div>
+  </section>
+
+  <!-- 5. LAUNCH -->
+  <section class="screen" id="screen-launch">
+    <div class="eyebrow">STAGE 05 — LAUNCH SEQUENCE</div>
+    <h2 class="title-xl" style="font-size:34px;">เตรียมปล่อยเรือ</h2>
+    <div class="launch-summary" id="launchSummary"></div>
+
+    <div class="dock-scene" id="dockScene">
+      <div class="water-line"></div>
+      <div class="ship-emoji">🚢</div>
+    </div>
+
+    <div class="launch-log" id="launchLog"></div>
+
+    <div class="btn-row">
+      <button class="btn ghost" onclick="goTo('inspection')">← ย้อนกลับ</button>
+      <button class="btn primary" id="launchBtn" onclick="startLaunch()">🚀 Launch Vessel</button>
+    </div>
+  </section>
+
+  <!-- 6. SEA TRIAL -->
+  <section class="screen" id="screen-trial">
+    <div class="eyebrow">STAGE 06 — SEA TRIAL</div>
+    <h2 class="title-xl" style="font-size:34px;">การเดินเรือทดสอบ</h2>
+
+    <div class="trial-layout">
+      <div>
+        <div class="sea-scene" id="seaScene">
+          <div class="stars"></div>
+          <div class="wave wave1"></div>
+          <div class="wave wave2"></div>
+          <div class="boat" id="boatEl">🚤</div>
+          <div class="event-flash" id="eventFlash"></div>
+        </div>
+        <div class="trial-stats" id="trialStats"></div>
+        <div class="event-log" id="eventLog"></div>
+      </div>
+      <div class="trial-side">
+        <div class="panel-box">
+          <div class="panel-title">VESSEL STATUS</div>
+          <div id="vesselStatus"></div>
+        </div>
+        <div class="panel-box">
+          <div class="panel-title">MISSION TARGET</div>
+          <div class="status-line">ระยะทางเป้าหมาย <b id="targetDistLbl"></b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row" id="trialBtnRow" style="display:none;">
+      <button class="btn primary" onclick="goTo('result')">ดูผลการทดสอบ →</button>
+    </div>
+  </section>
+
+  <!-- 7. RESULT -->
+  <section class="screen" id="screen-result">
+    <div class="eyebrow">STAGE 07 — SEA TRIAL RESULT</div>
+    <h2 class="title-xl" style="font-size:34px;">สรุปผลการเดินเรือ</h2>
+
+    <div class="result-top">
+      <div class="grade-badge" id="gradeBadge">--</div>
+      <div>
+        <div class="title-xl" style="font-size:22px;" id="gradeTitle"></div>
+        <div class="grade-desc" id="gradeDesc"></div>
+      </div>
+    </div>
+
+    <div class="result-stats" id="resultStats"></div>
+
+    <div class="reason-box">
+      <h3>ANALYSIS — สาเหตุหลักที่ส่งผลต่อผลลัพธ์</h3>
+      <ul id="reasonList"></ul>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn ghost" onclick="resetAll()">🔄 สร้างเรือใหม่ทั้งหมด</button>
+      <button class="btn primary" onclick="improveVessel()">🛠 Improve Vessel — กลับไปปรับปรุง →</button>
+    </div>
+  </section>
+
+  <footer class="credit">SHIPFORGE PROTOTYPE — DRY DOCK SIMULATION SYSTEM</footer>
+</div>
+
+<div class="modal-overlay" id="authModal">
+  <div class="modal-box">
+    <div class="modal-tabs">
+      <button id="tabLogin" class="active" onclick="switchAuthTab('login')">Login</button>
+      <button id="tabRegister" onclick="switchAuthTab('register')">Register</button>
+    </div>
+    <div class="err" id="authErr"></div>
+    <div id="loginForm">
+      <input type="text" id="loginUsername" placeholder="Username">
+      <input type="password" id="loginPassword" placeholder="Password">
+      <button class="btn primary" style="width:100%;" onclick="submitLogin()">Login</button>
+    </div>
+    <div id="registerForm" style="display:none;">
+      <input type="text" id="regUsername" placeholder="Username">
+      <input type="email" id="regEmail" placeholder="Email">
+      <input type="password" id="regPassword" placeholder="Password">
+      <button class="btn primary" style="width:100%;" onclick="submitRegister()">Register</button>
+    </div>
+    <button class="btn ghost" style="width:100%; margin-top:10px;" onclick="closeAuthModal()">Cancel</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="shipsModal">
+  <div class="modal-box">
+    <h3>My Ships</h3>
+    <div class="ships-list" id="shipsList"></div>
+    <button class="btn ghost" style="width:100%; margin-top:10px;" onclick="closeShipsModal()">Close</button>
+  </div>
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+const API_BASE = window.SHIPFORGE_API_BASE || 'http://localhost:8000/api';
+
+const STAGES = [
+  {key:'home', label:'HOME'},
+  {key:'mission', label:'MISSION'},
+  {key:'builder', label:'BUILD'},
+  {key:'inspection', label:'INSPECT'},
+  {key:'launch', label:'LAUNCH'},
+  {key:'trial', label:'SEA TRIAL'},
+  {key:'result', label:'RESULT'},
+];
+
+const SHIP_TYPES = [
+  {key:'fishing', label:'เรือประมง', icon:'🎣', desc:'ออกแบบเพื่อความคงทนและระยะเดินทางไกล ในสภาพทะเลไม่แน่นอน', focus:['Stability','Range','Hull'], target:180},
+  {key:'cruise', label:'เรือสำราญ/โดยสาร', icon:'🛳️', desc:'เน้นความปลอดภัยผู้โดยสารและความมั่นคงของตัวเรือสูงสุด', focus:['Safety','Stability','Comfort'], target:260},
+  {key:'cargo', label:'เรือขนส่งสินค้า', icon:'📦', desc:'ต้องการพื้นที่บรรทุกสูงสุดพร้อมรักษาระยะทางให้เพียงพอ', focus:['Cargo','Range','Structural'], target:420},
+  {key:'tanker', label:'เรือบรรทุกน้ำมัน', icon:'🛢️', desc:'โครงสร้างต้องแข็งแรงเป็นพิเศษ ควบคุมสมดุลน้ำหนักอย่างเคร่งครัด', focus:['Structural','Balance','Safety'], target:480},
+  {key:'patrol', label:'เรือ Patrol', icon:'🛡️', desc:'ต้องการความเร็วและความน่าเชื่อถือของเครื่องยนต์เพื่อภารกิจเร่งด่วน', focus:['Engine','Reliability','Speed'], target:240},
+  {key:'speedboat', label:'Speedboat', icon:'🚤', desc:'เน้นความเร็วสูงสุด น้ำหนักเบา แลกกับความจุและระยะทาง', focus:['Speed','Engine','Weight'], target:130},
+];
+
+const PART_TYPES = {
+  hull:      {label:'Hull',          icon:'🛶', baseWeight:400, buoyancy:60, structural:18, desc:'จำเป็น — โครงสร้างหลัก'},
+  engine:    {label:'Engine',        icon:'⚙️', baseWeight:150, enginePower:120, desc:'ให้กำลังขับเคลื่อน'},
+  fuelTank:  {label:'Fuel Tank',     icon:'⛽', baseWeight:60,  fuelCapacity:520, desc:'เพิ่มความจุเชื้อเพลิง'},
+  cargoHold: {label:'Cargo Hold',    icon:'📦', baseWeight:80,  cargoCapacity:300, desc:'เพิ่มพื้นที่บรรทุก'},
+  bridge:    {label:'Bridge',        icon:'🎛️', baseWeight:40,  safety:10, structural:5, desc:'ห้องควบคุมเรือ'},
+  stabilizer:{label:'Stabilizer',    icon:'⚖️', baseWeight:50,  stability:26, desc:'เพิ่มความมั่นคง'},
+  powerSys:  {label:'Power System',  icon:'🔋', baseWeight:45,  reliability:22, safety:5, desc:'สำรองไฟ / ความเชื่อถือได้'},
+  safetySys: {label:'Safety System', icon:'🦺', baseWeight:30,  safety:26, desc:'ระบบความปลอดภัย'},
+};
+
+const MATERIALS = [
+  {key:'wood',    label:'ไม้ (Wood)',              weightMult:0.55, strengthMult:0.45},
+  {key:'aluminum',label:'Aluminum',                weightMult:0.7,  strengthMult:0.7},
+  {key:'steel',   label:'Steel',                   weightMult:1.0,  strengthMult:1.0},
+  {key:'hsteel',  label:'High-strength Steel',     weightMult:1.25, strengthMult:1.45},
+  {key:'composite',label:'Composite',              weightMult:0.5,  strengthMult:1.15},
+];
+
+const EVENTS = [
+  {key:'swell',   label:'คลื่นสูง',           icon:'🌊', weight:22, dmg:6,  stabHit:14, spd:0.7},
+  {key:'monsoon', label:'มรสุม',              icon:'🌧️', weight:16, dmg:10, stabHit:18, spd:0.55},
+  {key:'storm',   label:'พายุ',               icon:'⛈️', weight:10, dmg:16, stabHit:26, spd:0.4},
+  {key:'rain',    label:'ฝนฟ้าคะนอง',        icon:'🌩️', weight:18, dmg:4,  stabHit:8,  spd:0.85},
+  {key:'wind',    label:'ลมแรง',              icon:'💨', weight:18, dmg:5,  stabHit:10, spd:0.75},
+  {key:'overheat',label:'เครื่องยนต์ร้อน',    icon:'🔥', weight:10, dmg:8,  stabHit:0,  spd:0.6, engineHit:true},
+  {key:'engfail', label:'ระบบเครื่องยนต์ขัดข้อง', icon:'🛑', weight:6,  dmg:14, stabHit:0, spd:0.3, engineHit:true},
+];
+
+/* ================= STATE ================= */
+let state = {
+  stage:'home',
+  shipType:null,
+  material:'steel',
+  parts:[],
+  shipName:'',
+  safetyScore:0,
+  approved:false,
+  checks:{},
+  serverId:null,
+};
+let idCounter = 1;
+let trial = null;
+let trialTimer = null;
+let authToken = localStorage.getItem('shipforge_token') || null;
+let currentUser = null;
+
+/* ================= AUTH / API ================= */
+async function apiFetch(path, opts={}){
+  opts.headers = opts.headers || {};
+  opts.headers['Content-Type']='application/json';
+  if(authToken) opts.headers['Authorization']='Bearer '+authToken;
+  const res = await fetch(API_BASE+path, opts);
+  if(!res.ok){ const err = await res.json().catch(()=>({detail:res.statusText})); throw new Error(err.detail||'Request failed'); }
+  return res.status===204 ? null : res.json();
+}
+function renderAuthArea(){
+  const el = document.getElementById('authArea');
+  if(currentUser){
+    el.innerHTML = `<span class="mono" style="color:var(--steel);font-size:11px;margin-right:8px;">👤 ${currentUser.username}</span><button class="auth-btn" onclick="logout()">Logout</button>`;
+  } else {
+    el.innerHTML = `<button class="auth-btn" onclick="openAuthModal()">Login / Register</button>`;
+  }
+}
+async function refreshMe(){
+  if(!authToken){ currentUser=null; renderAuthArea(); return; }
+  try{ currentUser = await apiFetch('/me'); } catch(e){ authToken=null; localStorage.removeItem('shipforge_token'); currentUser=null; }
+  renderAuthArea();
+}
+function openAuthModal(){ document.getElementById('authModal').classList.add('show'); document.getElementById('authErr').style.display='none'; }
+function closeAuthModal(){ document.getElementById('authModal').classList.remove('show'); }
+function switchAuthTab(tab){
+  document.getElementById('tabLogin').classList.toggle('active', tab==='login');
+  document.getElementById('tabRegister').classList.toggle('active', tab==='register');
+  document.getElementById('loginForm').style.display = tab==='login'?'block':'none';
+  document.getElementById('registerForm').style.display = tab==='register'?'block':'none';
+}
+function showAuthErr(msg){ const e=document.getElementById('authErr'); e.textContent=msg; e.style.display='block'; }
+async function submitLogin(){
+  const username=document.getElementById('loginUsername').value.trim();
+  const password=document.getElementById('loginPassword').value;
+  if(!username||!password){ showAuthErr('กรอก username และ password'); return; }
+  try{
+    const res = await fetch(API_BASE+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+    if(!res.ok) throw new Error('เข้าสู่ระบบไม่สำเร็จ');
+    const data = await res.json();
+    authToken = data.access_token;
+    localStorage.setItem('shipforge_token', authToken);
+    closeAuthModal();
+    await refreshMe();
+  }catch(e){ showAuthErr(e.message); }
+}
+async function submitRegister(){
+  const username=document.getElementById('regUsername').value.trim();
+  const email=document.getElementById('regEmail').value.trim();
+  const password=document.getElementById('regPassword').value;
+  if(!username||!email||!password){ showAuthErr('กรอกข้อมูลให้ครบ'); return; }
+  try{
+    const res = await fetch(API_BASE+'/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,email,password})});
+    if(!res.ok){ const d=await res.json().catch(()=>({})); throw new Error(d.detail||'สมัครไม่สำเร็จ'); }
+    document.getElementById('loginUsername').value=username;
+    switchAuthTab('login');
+    showAuthErr('สมัครสำเร็จ — เข้าสู่ระบบได้เลย');
+  }catch(e){ showAuthErr(e.message); }
+}
+function logout(){ authToken=null; localStorage.removeItem('shipforge_token'); currentUser=null; renderAuthArea(); }
+
+async function saveShipToAccount(){
+  if(!authToken){ openAuthModal(); return; }
+  if(state.parts.length===0){ alert('วางชิ้นส่วนบน Blueprint ก่อนบันทึก'); return; }
+  if(!state.shipType){ alert('เลือกประเภทเรือก่อน (หน้า Mission)'); return; }
+  try{
+    const payload = {
+      name: state.shipName || 'Unnamed Vessel',
+      ship_type: state.shipType,
+      material_key: state.material,
+      parts: state.parts.map(p=>({part_key:p.type, x:p.x, y:p.y}))
+    };
+    const ship = await apiFetch('/ships',{method:'POST', body:JSON.stringify(payload)});
+    state.serverId = ship.id;
+    alert('บันทึกเรือ "'+ship.name+'" ไปยังบัญชีแล้ว');
+  }catch(e){ alert('บันทึกไม่สำเร็จ: '+e.message); }
+}
+async function openShipsModal(){
+  if(!authToken){ openAuthModal(); return; }
+  document.getElementById('shipsModal').classList.add('show');
+  const list = document.getElementById('shipsList');
+  list.innerHTML = 'กำลังโหลด...';
+  try{
+    const ships = await apiFetch('/ships');
+    if(ships.length===0){ list.innerHTML='<div class="ts" style="color:var(--steel);">ยังไม่มีเรือที่บันทึกไว้</div>'; return; }
+    list.innerHTML = ships.map(s=>`<div class="srow" onclick="loadShip(${s.id})"><span>${s.name}</span><span class="mono" style="color:var(--steel);">${s.ship_type}</span></div>`).join('');
+  }catch(e){ list.innerHTML = 'โหลดไม่สำเร็จ: '+e.message; }
+}
+function closeShipsModal(){ document.getElementById('shipsModal').classList.remove('show'); }
+async function loadShip(id){
+  try{
+    const ship = await apiFetch('/ships/'+id);
+    state.shipType = ship.ship_type;
+    state.material = ship.material_key;
+    state.shipName = ship.name;
+    state.serverId = ship.id;
+    state.parts = ship.parts.map(p=>({id:idCounter++, type:p.part_key, x:p.x, y:p.y}));
+    closeShipsModal();
+    goTo('builder');
+  }catch(e){ alert('โหลดเรือไม่สำเร็จ: '+e.message); }
+}
+async function verifyViaServer(){
+  const box = document.getElementById('serverVerifyResult');
+  if(!authToken){ box.innerHTML='<span style="color:var(--amber);">ต้อง Login ก่อนถึงจะ verify ผ่าน server ได้</span>'; return; }
+  if(!state.serverId){ box.innerHTML='<span style="color:var(--amber);">กด "Save to Account" ในหน้า Builder ก่อน</span>'; return; }
+  box.innerHTML = 'กำลังตรวจสอบกับ server...';
+  try{
+    const r = await apiFetch('/ships/'+state.serverId+'/inspect',{method:'POST'});
+    box.innerHTML = `<span style="color:${r.approved?'var(--green)':'var(--red)'};">Server safety score: ${r.safety_score}% — ${r.approved?'APPROVED':'NOT APPROVED'}</span>`;
+  }catch(e){ box.innerHTML = '<span style="color:var(--red);">Verify ไม่สำเร็จ (เช็คว่า backend รันอยู่ที่ '+API_BASE+' ไหม): '+e.message+'</span>'; }
+}
+
+/* ================= NAV / STEPPER ================= */
+function renderStepper(){
+  const el = document.getElementById('stepper');
+  const idx = STAGES.findIndex(s=>s.key===state.stage);
+  el.innerHTML = STAGES.map((s,i)=>{
+    const cls = i<idx ? 'done' : (i===idx ? 'active':'');
+    return `<div class="step ${cls}"><span class="n">${i<idx?'✓':i+1}</span>${s.label}</div>` + (i<STAGES.length-1?'<div class="step-sep"></div>':'');
+  }).join('');
+  const hud = document.getElementById('hudMini');
+  if(state.shipType){
+    const t = SHIP_TYPES.find(x=>x.key===state.shipType);
+    hud.innerHTML = `<span>TYPE: <b>${t?t.label:'-'}</b></span><span>MAT: <b>${matLabel(state.material)}</b></span>`;
+  } else { hud.innerHTML=''; }
+}
+function goTo(stageKey){
+  state.stage = stageKey;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+stageKey).classList.add('active');
+  renderStepper();
+  window.scrollTo({top:0, behavior:'smooth'});
+  if(stageKey==='mission') renderMission();
+  if(stageKey==='builder') renderBuilder();
+  if(stageKey==='inspection') resetInspectionView();
+  if(stageKey==='launch') renderLaunch();
+  if(stageKey==='trial') startTrial();
+}
+function toggleHowTo(){ document.getElementById('howtoPanel').classList.toggle('open'); }
+
+/* ================= MISSION ================= */
+function renderMission(){
+  const grid = document.getElementById('typeGrid');
+  grid.innerHTML = SHIP_TYPES.map(t=>`
+    <div class="type-card ${state.shipType===t.key?'selected':''}" onclick="selectShipType('${t.key}')">
+      <span class="icon">${t.icon}</span>
+      <h3>${t.label}</h3>
+      <p>${t.desc}</p>
+      <div class="focus-tags">${t.focus.map(f=>`<span class="focus-tag">${f}</span>`).join('')}</div>
+    </div>`).join('');
+  updateMissionBrief();
+}
+function selectShipType(key){
+  state.shipType = key;
+  document.getElementById('toBuilderBtn').disabled = false;
+  renderMission();
+}
+function updateMissionBrief(){
+  const box = document.getElementById('missionBrief');
+  if(!state.shipType){ box.classList.remove('show'); return; }
+  const t = SHIP_TYPES.find(x=>x.key===state.shipType);
+  box.classList.add('show');
+  box.innerHTML = `เลือกแล้ว: <b>${t.label}</b> — เป้าหมายระยะเดินทาง <b>${t.target} nm</b>. ควรให้ความสำคัญกับ ${t.focus.join(', ')} เป็นพิเศษระหว่างออกแบบ`;
+}
+
+/* ================= BUILDER ================= */
+function matLabel(key){ const m=MATERIALS.find(x=>x.key===key); return m?m.label:key; }
+
+function renderBuilder(){
+  const t = SHIP_TYPES.find(x=>x.key===state.shipType);
+  document.getElementById('builderMissionNote').textContent = t? `ภารกิจ: ${t.label} — เป้าหมายระยะทาง ${t.target} nm — เน้น ${t.focus.join(', ')}` : '';
+  document.getElementById('shipNameInput').value = state.shipName;
+  document.getElementById('shipNameInput').oninput = e=> state.shipName = e.target.value;
+
+  const palette = document.getElementById('partsPalette');
+  palette.innerHTML = Object.entries(PART_TYPES).map(([key,p])=>`
+    <div class="part-item" draggable="true" ondragstart="onDragStart(event,'${key}')">
+      <span class="ic">${p.icon}</span>
+      <div><div>${p.label}</div><small>${p.desc}</small></div>
+    </div>`).join('');
+
+  const matBox = document.getElementById('materialSelect');
+  matBox.innerHTML = MATERIALS.map(m=>`
+    <div class="mat-opt ${state.material===m.key?'active':''}" onclick="setMaterial('${m.key}')">
+      <span>${m.label}</span><span class="tag">×${m.weightMult}w</span>
+    </div>`).join('');
+
+  renderGrid();
+  renderGauges();
+}
+function setMaterial(key){ state.material = key; renderBuilder(); }
+function onDragStart(ev, type){ ev.dataTransfer.setData('text/plain', type); }
+
+function renderGrid(){
+  const grid = document.getElementById('blueprintGrid');
+  grid.innerHTML='';
+  for(let y=0;y<5;y++){
+    for(let x=0;x<10;x++){
+      const cell = document.createElement('div');
+      cell.className='cell';
+      cell.dataset.x=x; cell.dataset.y=y;
+      cell.ondragover = e=>{ e.preventDefault(); cell.classList.add('dragover'); };
+      cell.ondragleave = ()=> cell.classList.remove('dragover');
+      cell.ondrop = e=>{ e.preventDefault(); cell.classList.remove('dragover'); const type=e.dataTransfer.getData('text/plain'); placePart(type,x,y); };
+      const part = state.parts.find(p=>p.x===x&&p.y===y);
+      if(part){
+        const def = PART_TYPES[part.type];
+        cell.innerHTML = `<div class="placed"><span class="rm" onclick="removePart(${part.id})">✕</span>${def.icon}<small>${def.label}</small></div>`;
+      }
+      grid.appendChild(cell);
+    }
+  }
+  document.getElementById('cellCount').textContent = `${state.parts.length}/50 CELLS`;
+}
+function placePart(type,x,y){
+  if(!PART_TYPES[type]) return;
+  if(state.parts.find(p=>p.x===x&&p.y===y)) return;
+  state.parts.push({id:idCounter++, type, x, y});
+  renderGrid();
+  renderGauges();
+}
+function removePart(id){
+  state.parts = state.parts.filter(p=>p.id!==id);
+  renderGrid();
+  renderGauges();
+}
+
+function computeStats(){
+  const mat = MATERIALS.find(m=>m.key===state.material);
+  let weight=0, buoyancy=0, structural=0, stability=52, enginePower=0, fuelCapacity=0, cargoCapacity=0, safety=0, reliability=0;
+  let hullCount=0, engineCount=0;
+  state.parts.forEach(p=>{
+    const def = PART_TYPES[p.type];
+    const w = def.baseWeight * mat.weightMult;
+    weight += w;
+    if(def.buoyancy) { buoyancy += def.buoyancy; hullCount++; }
+    if(def.structural) structural += def.structural * mat.strengthMult;
+    if(def.stability) stability += def.stability;
+    if(def.enginePower) { enginePower += def.enginePower; engineCount++; }
+    if(def.fuelCapacity) fuelCapacity += def.fuelCapacity;
+    if(def.cargoCapacity) cargoCapacity += def.cargoCapacity;
+    if(def.safety) safety += def.safety;
+    if(def.reliability) reliability += def.reliability;
+  });
+  let balancePenalty = 0;
+  if(state.parts.length){
+    const avgX = state.parts.reduce((s,p)=>s+p.x,0)/state.parts.length;
+    const dev = Math.abs(avgX-4.5)/4.5;
+    balancePenalty = dev*28;
+  }
+  stability = clamp(stability - balancePenalty, 0, 100);
+  const buoyancyScore = clamp(buoyancy - weight/22, 0, 100);
+  const structuralScore = clamp(structural, 0, 100);
+  const engineReliability = engineCount>0 ? clamp(48 + reliability + (engineCount>1?8:0), 0, 100) : 0;
+  const fuelAdequacy = clamp((fuelCapacity / Math.max(weight*0.55,1))*100, 0, 100);
+  const safetyEquip = clamp(safety, 0, 100);
+  const range = enginePower>0 ? Math.round((fuelCapacity/Math.max(weight,1)) * enginePower * 0.9) : 0;
+
+  return {
+    weight:Math.round(weight), buoyancy:Math.round(buoyancyScore), structural:Math.round(structuralScore),
+    stability:Math.round(stability), enginePower, fuelCapacity, cargoCapacity, range,
+    engineReliability:Math.round(engineReliability), fuelAdequacy:Math.round(fuelAdequacy),
+    safetyEquip:Math.round(safetyEquip), hullCount, engineCount, balancePenalty:Math.round(balancePenalty)
+  };
+}
+function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+
+function gaugeRow(label, val, max, unit, thresholds){
+  const pct = clamp((val/max)*100,0,100);
+  let cls='';
+  if(thresholds){
+    if(val < thresholds[0]) cls='bad'; else if(val<thresholds[1]) cls='warn'; else cls='good';
+  }
+  return `<div class="gauge">
+    <div class="gauge-top"><span>${label}</span><b>${val}${unit||''}</b></div>
+    <div class="gauge-bar"><div class="gauge-fill ${cls}" style="width:${pct}%;"></div></div>
+  </div>`;
+}
+function renderGauges(){
+  const s = computeStats();
+  const box = document.getElementById('gaugesBox');
+  box.innerHTML =
+    gaugeRow('Weight', s.weight, 2500, ' t') +
+    gaugeRow('Stability', s.stability, 100, '', [40,70]) +
+    gaugeRow('Buoyancy', s.buoyancy, 100, '', [40,70]) +
+    gaugeRow('Engine Power', s.enginePower, 400, ' kW', [80,200]) +
+    gaugeRow('Fuel Capacity', s.fuelCapacity, 2000, ' L') +
+    gaugeRow('Cargo Capacity', s.cargoCapacity, 1500, ' t') +
+    gaugeRow('Estimated Range', s.range, 700, ' nm', [150,350]);
+}
+
+/* ================= INSPECTION ================= */
+function resetInspectionView(){
+  document.getElementById('inspectWrap').style.display='none';
+  document.getElementById('toLaunchBtn').disabled = true;
+}
+function runInspection(){
+  const s = computeStats();
+  const checks = [
+    {key:'structural', label:'Structural Integrity', val:s.structural, pass:s.structural>=45},
+    {key:'stability', label:'Stability', val:s.stability, pass:s.stability>=40},
+    {key:'buoyancy', label:'Buoyancy', val:s.buoyancy, pass:s.buoyancy>=40 && s.hullCount>0},
+    {key:'engine', label:'Engine Reliability', val:s.engineReliability, pass:s.engineCount>0 && s.engineReliability>=40},
+    {key:'fuel', label:'Fuel Capacity', val:s.fuelAdequacy, pass:s.fuelAdequacy>=35},
+    {key:'balance', label:'Weight Balance', val:100-s.balancePenalty, pass:s.balancePenalty<=16},
+  ];
+  const overall = Math.round(checks.reduce((sum,c)=>sum+c.val,0)/checks.length);
+  state.safetyScore = overall;
+  state.approved = checks.every(c=>c.pass) && overall>=55;
+  state.checks = {list:checks, s};
+
+  document.getElementById('inspectWrap').style.display='grid';
+  document.getElementById('checksList').innerHTML = checks.map(c=>`
+    <div class="check-row">
+      <div class="lbl">${c.label}</div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="val">${c.val}%</span>
+        <span class="status ${c.pass?'pass':'fail'}">${c.pass?'✓':'✕'}</span>
+      </div>
+    </div>`).join('');
+
+  const issues = [];
+  if(s.hullCount===0) issues.push('ไม่มี Hull บน Blueprint — เรือไม่สามารถลอยน้ำได้');
+  if(s.engineCount===0) issues.push('ไม่มี Engine — เรือไม่สามารถเดินทางได้');
+  checks.forEach(c=>{ if(!c.pass && c.key!=='buoyancy' && c.key!=='engine') issues.push(`${c.label} ต่ำเกินไป (${c.val}%) — ควรปรับปรุงก่อนปล่อยเรือ`); });
+  document.getElementById('issueList').innerHTML = issues.map(i=>`<li>⚠ ${i}</li>`).join('');
+
+  document.getElementById('scoreNum').textContent = overall;
+  document.getElementById('scoreNum').style.color = overall>=70?'var(--green)': overall>=55?'var(--amber)':'var(--red)';
+  const badge = document.getElementById('approvalBadge');
+  if(state.approved){
+    badge.className='badge approved'; badge.textContent='✓ VESSEL APPROVED';
+    document.getElementById('toLaunchBtn').disabled=false;
+  } else {
+    badge.className='badge rejected'; badge.textContent='✕ NOT APPROVED';
+    document.getElementById('toLaunchBtn').disabled=true;
+  }
+  document.getElementById('serverVerifyResult').innerHTML='';
+}
+
+/* ================= LAUNCH ================= */
+function renderLaunch(){
+  const t = SHIP_TYPES.find(x=>x.key===state.shipType);
+  const name = state.shipName || 'UNNAMED VESSEL';
+  document.getElementById('launchSummary').innerHTML = `
+    <div class="sum-card"><div class="lbl">SHIP NAME</div><div class="val">${name}</div></div>
+    <div class="sum-card"><div class="lbl">TYPE</div><div class="val">${t.icon} ${t.label}</div></div>
+    <div class="sum-card"><div class="lbl">MATERIAL</div><div class="val">${matLabel(state.material)}</div></div>
+    <div class="sum-card"><div class="lbl">SAFETY SCORE</div><div class="val" style="color:${state.safetyScore>=70?'var(--green)':'var(--amber)'}">${state.safetyScore}%</div></div>
+  `;
+  document.getElementById('launchLog').innerHTML='';
+  document.getElementById('dockScene').classList.remove('launching');
+  document.getElementById('launchBtn').disabled=false;
+}
+function startLaunch(){
+  if(!confirm('ยืนยันการปล่อยเรือลงทะเล?')) return;
+  document.getElementById('launchBtn').disabled=true;
+  const steps = ['Final Inspection ✓ Confirmed','Release Dock Clamps...','Leaving Dry Dock...','Engine Start — Systems Nominal','Vessel Enters Water','Entering Open Sea'];
+  const log = document.getElementById('launchLog');
+  log.innerHTML='';
+  steps.forEach((s,i)=>{
+    setTimeout(()=>{
+      const ln = document.createElement('div');
+      ln.className='ln';
+      ln.style.animationDelay = '0s';
+      ln.innerHTML = `<b>[OK]</b> ${s}`;
+      log.appendChild(ln);
+      if(i===2) document.getElementById('dockScene').classList.add('launching');
+      if(i===steps.length-1){
+        setTimeout(()=>goTo('trial'), 900);
+      }
+    }, i*550);
+  });
+}
+
+/* ================= SEA TRIAL ================= */
+function startTrial(){
+  const t = SHIP_TYPES.find(x=>x.key===state.shipType);
+  const s = computeStats();
+  trial = {
+    distance:0, target:t.target, fuel:s.fuelCapacity, fuelMax:s.fuelCapacity,
+    hull:100, stability:s.stability, baseSpeed: Math.max(4, (s.enginePower / Math.max(s.weight,1)) * 55),
+    speedMult:1, ticks:0, ended:false, eventsTotal:0, eventsSurvived:0, log:[]
+  };
+  document.getElementById('targetDistLbl').textContent = t.target + ' nm';
+  document.getElementById('trialBtnRow').style.display='none';
+  document.getElementById('eventLog').innerHTML='';
+  document.getElementById('boatEl').style.left='8%';
+  clearInterval(trialTimer);
+  renderTrialUI();
+  trialTimer = setInterval(trialTick, 450);
+}
+function logEvent(text, cls){
+  const el = document.getElementById('eventLog');
+  const div = document.createElement('div');
+  div.className='en '+(cls||'');
+  div.textContent = text;
+  el.prepend(div);
+}
+function trialTick(){
+  if(!trial || trial.ended) return;
+  trial.ticks++;
+  const speed = trial.baseSpeed * trial.speedMult;
+  trial.distance += speed*0.12;
+  const consumption = (trial.baseSpeed*0.9 + 6);
+  trial.fuel = Math.max(0, trial.fuel - consumption);
+  trial.speedMult = Math.min(1, trial.speedMult + 0.08);
+
+  const pct = Math.min(92, 8 + (trial.distance/trial.target)*84);
+  document.getElementById('boatEl').style.left = pct+'%';
+
+  if(trial.ticks % 4 === 0 && Math.random() < 0.55){
+    triggerEvent();
+  }
+
+  if(trial.fuel<=0){ endTrial('fuel'); }
+  else if(trial.hull<=0){ endTrial('hull'); }
+  else if(trial.distance>=trial.target){ endTrial('arrived'); }
+
+  renderTrialUI();
+}
+function triggerEvent(){
+  const totalW = EVENTS.reduce((s,e)=>s+e.weight,0);
+  let r = Math.random()*totalW, ev=EVENTS[0];
+  for(const e of EVENTS){ if(r<e.weight){ ev=e; break;} r-=e.weight; }
+  trial.eventsTotal++;
+  const s = computeStats();
+  const mitig = 1 - (s.stability/100)*0.5 - (s.structural/100)*0.25;
+  const dmg = Math.max(1, ev.dmg * Math.max(mitig,0.25));
+  trial.hull = clamp(trial.hull - dmg, 0, 100);
+  trial.speedMult = ev.spd;
+  const survived = dmg < ev.dmg*0.6;
+  if(survived) trial.eventsSurvived++;
+
+  const flash = document.getElementById('eventFlash');
+  flash.classList.add('show');
+  setTimeout(()=>flash.classList.remove('show'), 220);
+
+  logEvent(`${ev.icon} ${ev.label} — Hull -${dmg.toFixed(1)}% ${survived?'(รับมือได้ดี)':'(เสียหายหนัก)'}`, dmg>10?'bad':'warn');
+}
+function renderTrialUI(){
+  if(!trial) return;
+  document.getElementById('trialStats').innerHTML = `
+    <div class="tstat"><div class="lbl">DISTANCE</div><div class="val">${trial.distance.toFixed(1)} nm</div></div>
+    <div class="tstat"><div class="lbl">SAILING TIME</div><div class="val">${trial.ticks} min</div></div>
+    <div class="tstat"><div class="lbl">SPEED</div><div class="val">${(trial.baseSpeed*trial.speedMult).toFixed(1)} kn</div></div>
+    <div class="tstat"><div class="lbl">FUEL</div><div class="val" style="color:${trial.fuel<trial.fuelMax*0.2?'var(--red)':'var(--steel-light)'}">${Math.round(trial.fuel)} L</div></div>
+    <div class="tstat"><div class="lbl">HULL CONDITION</div><div class="val" style="color:${trial.hull<35?'var(--red)':trial.hull<65?'var(--amber)':'var(--green)'}">${Math.round(trial.hull)}%</div></div>
+    <div class="tstat"><div class="lbl">STABILITY</div><div class="val">${Math.round(trial.stability)}%</div></div>
+  `;
+  document.getElementById('vesselStatus').innerHTML = `
+    <div class="status-line">ระยะทาง <b>${trial.distance.toFixed(1)} / ${trial.target} nm</b></div>
+    <div class="status-line">เชื้อเพลิงคงเหลือ <b>${Math.round((trial.fuel/trial.fuelMax)*100)}%</b></div>
+    <div class="status-line">สภาพตัวเรือ <b>${Math.round(trial.hull)}%</b></div>
+    <div class="status-line">เหตุการณ์ที่พบ <b>${trial.eventsTotal}</b></div>
+  `;
+}
+function endTrial(reason){
+  trial.ended = true;
+  clearInterval(trialTimer);
+  const msgs = {fuel:'⛽ น้ำมันหมด — เรือหยุดกลางทะเล', hull:'💥 โครงสร้างเสียหายรุนแรง — ยุติการเดินเรือ', arrived:'🏁 เดินทางถึงเป้าหมายสำเร็จ!'};
+  logEvent(msgs[reason], reason==='arrived'?'good':'bad');
+  trial.endReason = reason;
+  document.getElementById('trialBtnRow').style.display='flex';
+
+  if(authToken && state.serverId){
+    const r = goToResultCompute();
+    apiFetch('/ships/'+state.serverId+'/sea-trial',{method:'POST', body:JSON.stringify({
+      distance: Math.round(trial.distance*10)/10,
+      sailing_time: trial.ticks,
+      fuel_efficiency: Math.round((trial.distance/Math.max(trial.fuelMax-trial.fuel,1))*100)/100,
+      safety_score: state.safetyScore,
+      hull_condition: Math.round(trial.hull),
+      grade: r.grade
+    })}).catch(()=>{});
+  }
+}
+
+/* ================= RESULT ================= */
+function goToResultCompute(){
+  const s = computeStats();
+  const reachedFrac = clamp(trial.distance/trial.target, 0, 1);
+  const hullFrac = trial.hull/100;
+  const safetyFrac = state.safetyScore/100;
+  const survivedRatio = trial.eventsTotal>0 ? trial.eventsSurvived/trial.eventsTotal : 1;
+  const score = reachedFrac*40 + hullFrac*25 + safetyFrac*15 + survivedRatio*20;
+  let grade='D', desc='UNSAFE — ต้องออกแบบใหม่';
+  if(score>=88){grade='S'; desc='EXCEPTIONAL — เกินความคาดหมาย';}
+  else if(score>=74){grade='A'; desc='EXCELLENT — ประสิทธิภาพดีเยี่ยม';}
+  else if(score>=58){grade='B'; desc='GOOD — ผ่านเกณฑ์มาตรฐาน';}
+  else if(score>=40){grade='C'; desc='NEEDS IMPROVEMENT — ควรปรับปรุง';}
+  return {score:Math.round(score), grade, desc, reachedFrac, hullFrac, safetyFrac, survivedRatio, s};
+}
+function renderResult(){
+  const r = goToResultCompute();
+  const badge = document.getElementById('gradeBadge');
+  badge.className = 'grade-badge grade-'+r.grade;
+  badge.textContent = r.grade;
+  document.getElementById('gradeTitle').textContent = (state.shipName||'UNNAMED VESSEL') + ' — Grade ' + r.grade;
+  document.getElementById('gradeDesc').textContent = r.desc + ' · SCORE ' + r.score + '/100';
+
+  const fuelUsed = trial.fuelMax - trial.fuel;
+  document.getElementById('resultStats').innerHTML = `
+    <div class="rstat"><div class="lbl">ระยะทางที่เดินทางได้</div><div class="val">${trial.distance.toFixed(1)} nm</div></div>
+    <div class="rstat"><div class="lbl">เวลาที่เดินทาง</div><div class="val">${trial.ticks} min</div></div>
+    <div class="rstat"><div class="lbl">ความเร็วสูงสุด</div><div class="val">${trial.baseSpeed.toFixed(1)} kn</div></div>
+    <div class="rstat"><div class="lbl">Fuel Efficiency</div><div class="val">${(trial.distance/Math.max(fuelUsed,1)).toFixed(2)} nm/L</div></div>
+    <div class="rstat"><div class="lbl">Safety Score</div><div class="val">${state.safetyScore}%</div></div>
+    <div class="rstat"><div class="lbl">Hull Condition</div><div class="val">${Math.round(trial.hull)}%</div></div>
+    <div class="rstat"><div class="lbl">Events ผ่านได้ดี</div><div class="val">${trial.eventsSurvived}/${trial.eventsTotal}</div></div>
+    <div class="rstat"><div class="lbl">สถานะภารกิจ</div><div class="val">${trial.endReason==='arrived'?'สำเร็จ':'ไม่สำเร็จ'}</div></div>
+  `;
+
+  const reasons = [];
+  if(r.s.fuelAdequacy<50) reasons.push('ระยะทางถูกจำกัดเนื่องจาก Fuel Capacity ต่ำเกินไปเมื่อเทียบกับน้ำหนักเรือ');
+  if(r.s.stability<55) reasons.push('เรือได้รับ Damage สูงระหว่างเดินเรือ เนื่องจาก Stability ต่ำ ทำให้รับมือคลื่น/พายุได้ไม่ดี');
+  if(r.s.structural<50) reasons.push('Structural Integrity ต่ำ ทำให้ตัวเรือเสียหายง่ายเมื่อเจอเหตุการณ์รุนแรง');
+  if(r.s.balancePenalty>14) reasons.push('การจัดวางชิ้นส่วนไม่สมดุล (น้ำหนักเอียงไปด้านใดด้านหนึ่งของ Blueprint) ทำให้ Stability ลดลง');
+  if(r.s.engineCount<2 && r.s.weight>1200) reasons.push('เรือมีน้ำหนักมากแต่มี Engine ไม่เพียงพอ ทำให้ความเร็วและ Range ต่ำกว่าที่ควร');
+  if(trial.endReason==='arrived' && r.score>=74) reasons.push('การออกแบบสมดุลดีทั้ง Stability, Fuel และ Structural ทำให้เดินทางถึงเป้าหมายได้อย่างมีประสิทธิภาพ');
+  if(reasons.length===0) reasons.push('ภาพรวมของเรือมีความสมดุลดี ไม่มีจุดอ่อนเด่นชัด');
+  document.getElementById('reasonList').innerHTML = reasons.map(x=>`<li>${x}</li>`).join('');
+}
+
+const _origGoTo = goTo;
+goTo = function(stageKey){
+  _origGoTo(stageKey);
+  if(stageKey==='result') renderResult();
+};
+
+function improveVessel(){ goTo('builder'); }
+function resetAll(){
+  if(!confirm('เริ่มต้นสร้างเรือใหม่ทั้งหมด? ข้อมูลปัจจุบันจะหายไป')) return;
+  state = {stage:'home', shipType:null, material:'steel', parts:[], shipName:'', safetyScore:0, approved:false, checks:{}, serverId:null};
+  trial=null;
+  goTo('home');
+}
+
+/* ================= INIT ================= */
+renderStepper();
+renderAuthArea();
+refreshMe();
+</script>
+</body>
+</html>
