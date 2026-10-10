@@ -1,0 +1,2197 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShipForge — Ship Design &amp; Sea Trial Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1318;
+    --bg-alt:#141B22;
+    --panel:#1A232B;
+    --panel-2:#202B34;
+    --line:#233642;
+    --grid-line: rgba(73,199,224,0.08);
+    --cyan:#49C7E0;
+    --cyan-dim: rgba(73,199,224,0.35);
+    --steel:#8B96A1;
+    --steel-light:#DCE3E8;
+    --amber:#F2A93B;
+    --green:#3ED598;
+    --red:#F2543D;
+    --purple:#B07CF2;
+    --teal:#2DD4BF;
+    --rivet:#33404A;
+    --radius: 3px;
+  }
+  /* ===== Professional Planning Platform theme =====
+     Applied only to the planning layer (dashboard / projects / project
+     detail) via body.light-mode. The original dark "industrial blueprint"
+     game screens (home, 2D builder, inspection, sea trial) are untouched —
+     they keep reading the :root values above. Because every rule in this
+     file already reads colors through var(--x), re-pointing the same
+     variable names here is enough to re-skin the planning screens without
+     touching their markup or CSS rules individually. */
+  body.light-mode{
+    --bg:#F6F4EF;
+    --bg-alt:#EFEBE3;
+    --panel:#FFFFFF;
+    --panel-2:#F4F1EA;
+    --line:#E1DBCD;
+    --grid-line: rgba(19,46,74,0.05);
+    --cyan:#2E6690;
+    --cyan-light:#17486B;
+    --cyan-dim: rgba(46,102,144,0.16);
+    --steel:#6B7380;
+    --steel-light:#17202B;
+    --amber:#B5740C;
+    --green:#1D8457;
+    --red:#C13A2B;
+    --purple:#6C4F9C;
+    --teal:#1C8A80;
+    --rivet:#DAD3C0;
+  }
+  body.light-mode .scan-line, body.light-mode .grid-overlay{ opacity:0.3; }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--steel-light);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  ::selection{background:var(--cyan-dim);}
+  h1,h2,h3,.display{
+    font-family:'Oswald',sans-serif;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    font-weight:600;
+    margin:0;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  button{font-family:'Inter',sans-serif; cursor:pointer;}
+  .app{position:relative; min-height:100vh; width:100%;}
+
+  .bp-bg{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity:0.9;
+  }
+  .bp-bg::after{
+    content:"";
+    position:absolute; inset:0;
+    background: radial-gradient(ellipse at 20% 0%, rgba(73,199,224,0.06), transparent 55%),
+                radial-gradient(ellipse at 90% 100%, rgba(242,169,59,0.04), transparent 50%);
+  }
+
+  .topbar{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; gap:18px;
+    padding:12px 22px;
+    background:rgba(14,19,24,0.92);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{
+    display:flex; align-items:center; gap:8px;
+    font-family:'Oswald',sans-serif; font-weight:700; letter-spacing:0.06em;
+    color:var(--steel-light); font-size:15px; white-space:nowrap;
+  }
+  .brand .dot{width:8px;height:8px;background:var(--cyan);border-radius:1px; transform:rotate(45deg); box-shadow:0 0 8px var(--cyan);}
+  .stepper{display:flex; align-items:center; gap:2px; overflow-x:auto; flex:1; scrollbar-width:none;}
+  .stepper::-webkit-scrollbar{display:none;}
+  .step{
+    display:flex; align-items:center; gap:6px;
+    padding:6px 10px; border-radius:2px; white-space:nowrap;
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:0.03em;
+    color:var(--steel); border:1px solid transparent;
+  }
+  .step .n{color:var(--steel); border:1px solid var(--rivet); width:16px;height:16px;border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:9px;}
+  .step.done{color:var(--green);}
+  .step.done .n{border-color:var(--green); color:var(--green);}
+  .step.active{color:var(--cyan);}
+  .step.active .n{border-color:var(--cyan); color:var(--cyan); box-shadow:0 0 6px rgba(73,199,224,0.5);}
+  .step-sep{width:14px; height:1px; background:var(--rivet); flex-shrink:0;}
+  .hud-mini{display:flex; gap:14px; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--steel);}
+  .hud-mini b{color:var(--cyan-light,var(--cyan));}
+  .auth-area{display:flex; align-items:center; white-space:nowrap;}
+  .auth-btn{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--steel); border:1px solid var(--rivet); padding:5px 10px; border-radius:2px; cursor:pointer; background:transparent;}
+  .auth-btn:hover{border-color:var(--cyan); color:var(--cyan);}
+
+  .screen{display:none; position:relative; z-index:1; padding:40px 24px 90px; max-width:1180px; margin:0 auto; animation:fadeIn 0.4s ease;}
+  .screen.active{display:block;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace; color:var(--cyan); font-size:11px;
+    letter-spacing:0.15em; margin-bottom:10px; display:flex; align-items:center; gap:8px;
+  }
+  .eyebrow::before{content:""; width:18px; height:1px; background:var(--cyan);}
+  .title-xl{font-size:clamp(34px,6vw,64px); line-height:1.02; color:var(--steel-light);}
+  .title-xl .accent{color:var(--cyan);}
+  .sub{color:var(--steel); font-size:15px; line-height:1.6; max-width:600px; margin-top:14px;}
+
+  .btn{
+    border:1px solid var(--rivet); background:var(--panel-2); color:var(--steel-light);
+    padding:12px 22px; border-radius:2px; font-size:13px; font-weight:600;
+    letter-spacing:0.04em; text-transform:uppercase; font-family:'Oswald',sans-serif;
+    transition:all .15s ease; display:inline-flex; align-items:center; gap:8px;
+  }
+  .btn:hover{border-color:var(--cyan); color:var(--cyan); box-shadow:0 0 0 1px var(--cyan) inset;}
+  .btn.primary{background:var(--cyan); color:#0A1216; border-color:var(--cyan);}
+  .btn.primary:hover{background:#5FD4EB; box-shadow:0 0 20px rgba(73,199,224,0.35);}
+  .btn.ghost{background:transparent;}
+  .btn.danger{border-color:var(--red); color:var(--red);}
+  .btn.danger:hover{background:rgba(242,84,61,0.1); box-shadow:0 0 0 1px var(--red) inset;}
+  .btn:disabled{opacity:0.35; cursor:not-allowed; pointer-events:none;}
+  .btn-row{display:flex; gap:12px; margin-top:26px; flex-wrap:wrap;}
+
+  .home-hero{display:grid; grid-template-columns:1.1fr 1fr; gap:50px; align-items:center; padding-top:10px;}
+  @media(max-width:860px){.home-hero{grid-template-columns:1fr;}}
+  .hull-diagram{position:relative;}
+  .hull-diagram svg{width:100%; height:auto; overflow:visible;}
+  .scan-line{position:absolute; left:0; right:0; height:1px; background:linear-gradient(90deg, transparent, var(--cyan), transparent); animation:scan 3.2s ease-in-out infinite; opacity:0.8;}
+  @keyframes scan{0%{top:6%;} 50%{top:92%;} 100%{top:6%;}}
+
+  .flow-steps{display:flex; flex-wrap:wrap; gap:8px; margin-top:30px;}
+  .flow-chip{
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--steel);
+    border:1px solid var(--rivet); padding:6px 10px; border-radius:2px; display:flex; align-items:center; gap:6px;
+  }
+  .flow-chip b{color:var(--cyan);}
+  .flow-arrow{color:var(--rivet); align-self:center;}
+
+  .howto-panel{margin-top:20px; padding:16px 18px; background:var(--panel); border:1px solid var(--line); border-radius:2px; display:none;}
+  .howto-panel.open{display:block;}
+  .howto-panel ol{margin:8px 0 0; padding-left:18px; color:var(--steel); font-size:13.5px; line-height:1.9;}
+  .howto-panel li b{color:var(--steel-light);}
+
+  .type-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; margin-top:28px;}
+  .type-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:18px;
+    cursor:pointer; transition:all .15s ease; position:relative;
+  }
+  .type-card:hover{border-color:var(--cyan-dim); transform:translateY(-2px);}
+  .type-card.selected{border-color:var(--cyan); box-shadow:0 0 0 1px var(--cyan) inset, 0 0 20px rgba(73,199,224,0.12);}
+  .type-card .icon{font-size:26px; margin-bottom:10px; display:block;}
+  .type-card h3{font-size:16px; color:var(--steel-light);}
+  .type-card p{font-size:12px; color:var(--steel); margin:8px 0 12px; line-height:1.6; min-height:48px;}
+  .focus-tags{display:flex; flex-wrap:wrap; gap:5px;}
+  .focus-tag{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--amber); border:1px solid rgba(242,169,59,0.35); padding:2px 6px; border-radius:2px;}
+  .mission-brief{margin-top:26px; padding:16px 18px; background:var(--panel); border-left:2px solid var(--cyan); border-radius:0 2px 2px 0; display:none; font-size:13px; color:var(--steel); line-height:1.7;}
+  .mission-brief.show{display:block;}
+  .mission-brief b{color:var(--cyan);}
+
+  .builder-grid{display:grid; grid-template-columns:230px 1fr 260px; gap:16px; margin-top:22px;}
+  @media(max-width:1000px){.builder-grid{grid-template-columns:1fr;}}
+  .panel-box{background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:14px;}
+  .panel-title{font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:0.1em; color:var(--steel); margin-bottom:12px; display:flex; justify-content:space-between;}
+  .panel-title span{color:var(--cyan);}
+
+  .part-item{
+    display:flex; align-items:center; gap:9px; padding:9px 8px; margin-bottom:6px;
+    background:var(--panel-2); border:1px solid var(--rivet); border-radius:2px; cursor:grab; font-size:12px;
+  }
+  .part-item:active{cursor:grabbing;}
+  .part-item .ic{font-size:15px;}
+  .part-item small{display:block; color:var(--steel); font-size:9.5px; font-family:'IBM Plex Mono',monospace;}
+  .part-item .zone-tag{display:inline-block; margin-top:2px; font-size:8.5px; font-family:'IBM Plex Mono',monospace; padding:1px 5px; border-radius:2px; opacity:0.9;}
+
+  .material-select{display:flex; flex-direction:column; gap:5px; margin-top:8px;}
+  .mat-opt{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:7px 9px; border:1px solid var(--rivet); border-radius:2px; font-size:11.5px; cursor:pointer; color:var(--steel);
+  }
+  .mat-opt.active{border-color:var(--cyan); color:var(--cyan-light,var(--steel-light)); background:rgba(73,199,224,0.06);}
+  .mat-opt span.tag{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--steel);}
+
+  .blueprint-wrap{background:var(--bg-alt); border:1px solid var(--line); border-radius:3px; padding:14px; display:flex; flex-direction:column;}
+  .blueprint-grid{
+    flex:1; display:grid; grid-template-columns:repeat(10,1fr); grid-template-rows:repeat(5,1fr);
+    gap:3px; background:var(--line); border:1px solid var(--line); min-height:340px; position:relative;
+  }
+  .cell{position:relative; display:flex; align-items:center; justify-content:center; min-height:56px; transition:background .1s;}
+  .cell.dragover{outline:1px dashed var(--cyan);}
+  .cell .placed{display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; font-size:18px; position:relative;}
+  .cell .placed small{font-size:8px; font-family:'IBM Plex Mono',monospace; color:var(--steel); margin-top:2px;}
+  .cell .rm{position:absolute; top:1px; right:2px; font-size:9px; color:var(--red); display:none; cursor:pointer; z-index:3;}
+  .cell:hover .rm{display:block;}
+  .pbadge{position:absolute; top:0px; left:2px; font-size:9px; line-height:1; z-index:2;}
+  .ship-name-row{display:flex; gap:10px; align-items:center; margin-top:12px;}
+  .ship-name-row input{
+    flex:1; background:var(--panel-2); border:1px solid var(--rivet); color:var(--steel-light);
+    padding:9px 10px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; border-radius:2px;
+  }
+  .ship-name-row input:focus{outline:none; border-color:var(--cyan);}
+  .zone-legend{display:flex; flex-wrap:wrap; gap:10px 16px; margin-top:12px; font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--steel);}
+  .zone-legend .zitem{display:flex; align-items:center; gap:5px;}
+  .zone-legend .zdot{width:9px;height:9px;border-radius:2px; flex-shrink:0;}
+
+  .gauge{margin-bottom:13px;}
+  .gauge-top{display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--steel); margin-bottom:4px;}
+  .gauge-top b{color:var(--steel-light); font-weight:600;}
+  .gauge-bar{height:5px; background:var(--panel-2); border-radius:2px; overflow:hidden; border:1px solid var(--rivet);}
+  .gauge-fill{height:100%; background:var(--cyan); transition:width .3s ease;}
+  .gauge-fill.warn{background:var(--amber);}
+  .gauge-fill.bad{background:var(--red);}
+  .gauge-fill.good{background:var(--green);}
+  .issue-mini{font-size:11px; margin-top:4px; line-height:1.6;}
+
+  .inspect-wrap{display:grid; grid-template-columns:1fr 340px; gap:24px; margin-top:26px;}
+  @media(max-width:860px){.inspect-wrap{grid-template-columns:1fr;}}
+  .check-row{display:flex; align-items:center; justify-content:space-between; padding:13px 14px; border:1px solid var(--line); border-radius:2px; margin-bottom:8px; background:var(--panel);}
+  .check-row .lbl{font-size:13px; color:var(--steel-light);}
+  .check-row .val{font-family:'IBM Plex Mono',monospace; font-size:12px;}
+  .check-row .status{font-size:15px;}
+  .status.pass{color:var(--green);}
+  .status.fail{color:var(--red);}
+  .score-card{background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:24px; text-align:center; height:fit-content;}
+  .score-ring{width:150px; height:150px; margin:10px auto 6px; position:relative;}
+  .score-num{font-family:'Oswald',sans-serif; font-size:38px; font-weight:700;}
+  .score-lbl{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--steel); letter-spacing:0.1em; margin-top:2px;}
+  .badge{display:inline-block; margin-top:14px; padding:6px 16px; border-radius:2px; font-family:'Oswald',sans-serif; letter-spacing:0.06em; font-size:12px; text-transform:uppercase;}
+  .badge.approved{background:rgba(62,213,152,0.12); color:var(--green); border:1px solid var(--green);}
+  .badge.rejected{background:rgba(242,84,61,0.12); color:var(--red); border:1px solid var(--red);}
+  .issue-list{text-align:left; margin-top:16px; font-size:12px; color:var(--steel); line-height:1.8;}
+  .issue-list li{margin-bottom:4px;}
+
+  .launch-summary{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:26px;}
+  @media(max-width:760px){.launch-summary{grid-template-columns:repeat(2,1fr);}}
+  .sum-card{background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:16px;}
+  .sum-card .lbl{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--steel); letter-spacing:0.1em;}
+  .sum-card .val{font-family:'Oswald',sans-serif; font-size:20px; margin-top:6px; color:var(--steel-light);}
+  .dock-scene{margin-top:30px; height:180px; border:1px solid var(--line); border-radius:3px; background:linear-gradient(180deg,#0E1318 0%,#132029 100%); position:relative; overflow:hidden; display:flex; align-items:flex-end; justify-content:center;}
+  .dock-scene .ship-emoji{font-size:54px; transition:transform 1.2s ease, opacity 1s ease; margin-bottom:18px; filter:drop-shadow(0 0 10px rgba(73,199,224,0.3));}
+  .dock-scene.launching .ship-emoji{transform:translateX(140%) translateY(-6px); opacity:0.15;}
+  .water-line{position:absolute; bottom:0; left:0; right:0; height:34px; background:repeating-linear-gradient(90deg, rgba(73,199,224,0.12) 0 20px, transparent 20px 40px); border-top:1px solid var(--cyan-dim);}
+  .launch-log{margin-top:18px; background:var(--bg-alt); border:1px solid var(--line); border-radius:3px; padding:14px; font-family:'IBM Plex Mono',monospace; font-size:12px; min-height:150px;}
+  .launch-log .ln{color:var(--steel); opacity:0; transform:translateX(-6px); animation:logIn .35s forwards; margin-bottom:6px;}
+  .launch-log .ln b{color:var(--green);}
+  @keyframes logIn{to{opacity:1; transform:translateX(0);}}
+
+  .trial-layout{display:grid; grid-template-columns:1fr 300px; gap:20px; margin-top:22px;}
+  @media(max-width:900px){.trial-layout{grid-template-columns:1fr;}}
+  .sea-scene{
+    height:260px; border-radius:3px; border:1px solid var(--line); position:relative; overflow:hidden;
+    background:linear-gradient(180deg,#0B141B 0%, #0E2530 65%, #123245 100%);
+  }
+  .sea-scene .stars{position:absolute; inset:0; background-image:radial-gradient(1px 1px at 20% 20%, rgba(255,255,255,0.4), transparent), radial-gradient(1px 1px at 70% 10%, rgba(255,255,255,0.3), transparent), radial-gradient(1px 1px at 40% 30%, rgba(255,255,255,0.3), transparent);}
+  .wave{position:absolute; left:-10%; width:120%; height:40px; opacity:0.5;}
+  .wave1{bottom:36px; background:repeating-linear-gradient(90deg, rgba(73,199,224,0.18) 0 24px, transparent 24px 48px); animation:waveMove 6s linear infinite;}
+  .wave2{bottom:14px; background:repeating-linear-gradient(90deg, rgba(73,199,224,0.28) 0 30px, transparent 30px 60px); animation:waveMove 4s linear infinite reverse;}
+  @keyframes waveMove{from{transform:translateX(0);} to{transform:translateX(-48px);}}
+  .sea-scene.rough .wave1{animation-duration:2.1s;}
+  .sea-scene.rough .wave2{animation-duration:1.4s;}
+
+  .rain-overlay{position:absolute; inset:0; background-image:repeating-linear-gradient(115deg, rgba(190,225,255,0.35) 0 2px, transparent 2px 14px); opacity:0; pointer-events:none; animation:rainFall 0.5s linear infinite; transition:opacity .3s;}
+  .rain-overlay.show{opacity:0.75;}
+  @keyframes rainFall{from{background-position:0 0;} to{background-position:-40px 60px;}}
+  .wind-overlay{position:absolute; inset:0; background-image:repeating-linear-gradient(100deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 34px); opacity:0; pointer-events:none; animation:windMove 0.35s linear infinite; transition:opacity .3s;}
+  .wind-overlay.show{opacity:0.65;}
+  @keyframes windMove{from{background-position:0 0;} to{background-position:-70px 14px;}}
+  .lightning-overlay{position:absolute; inset:0; background:#eaf6ff; opacity:0; pointer-events:none;}
+  .lightning-overlay.flash{animation:lightningFlash 0.55s ease;}
+  @keyframes lightningFlash{0%{opacity:0;}8%{opacity:0.75;}18%{opacity:0.05;}30%{opacity:0.5;}100%{opacity:0;}}
+  .smoke-puff{position:absolute; bottom:78px; font-size:18px; opacity:0.85; pointer-events:none; animation:smokeRise 1.4s ease forwards;}
+  @keyframes smokeRise{0%{transform:translateY(0) scale(0.8); opacity:0.8;} 100%{transform:translateY(-44px) scale(1.5); opacity:0;}}
+
+  .boat{position:absolute; bottom:40px; left:8%; width:120px; height:50px; animation:bob 2.2s ease-in-out infinite; filter:drop-shadow(0 0 8px rgba(73,199,224,0.25)); transition:left 0.4s linear;}
+  .boat.windy{animation-duration:1.05s;}
+  @keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg);} 50%{transform:translateY(-6px) rotate(2deg);}}
+  .boat-half{position:absolute; inset:0; overflow:hidden;}
+  .boat-half svg{display:block;}
+  .half-left{clip-path:inset(0 50% 0 0);}
+  .half-right{clip-path:inset(0 0 0 50%);}
+  .boat.broken .half-left{transform:translate(-26px,16px) rotate(-20deg); opacity:0.12; transition:transform 1.1s ease, opacity 1.1s ease;}
+  .boat.broken .half-right{transform:translate(26px,18px) rotate(18deg); opacity:0.12; transition:transform 1.1s ease, opacity 1.1s ease;}
+  .boat-break-flash{position:absolute; left:50%; top:28%; transform:translate(-50%,-50%); font-size:30px; opacity:0; transition:opacity .25s; pointer-events:none;}
+  .boat-break-flash.show{opacity:1;}
+
+  .event-flash{position:absolute; inset:0; background:rgba(242,84,61,0.18); opacity:0; pointer-events:none; transition:opacity .25s;}
+  .event-flash.show{opacity:1;}
+  .trial-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px;}
+  .tstat{background:var(--panel); border:1px solid var(--line); border-radius:2px; padding:10px 12px;}
+  .tstat .lbl{font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--steel); letter-spacing:0.08em;}
+  .tstat .val{font-family:'Oswald',sans-serif; font-size:18px; margin-top:4px;}
+  .event-log{background:var(--bg-alt); border:1px solid var(--line); border-radius:3px; padding:12px; margin-top:14px; height:150px; overflow-y:auto; font-family:'IBM Plex Mono',monospace; font-size:11px;}
+  .event-log .en{padding:4px 0; border-bottom:1px solid var(--line); color:var(--steel);}
+  .event-log .en.warn{color:var(--amber);}
+  .event-log .en.bad{color:var(--red);}
+  .event-log .en.good{color:var(--green);}
+  .trial-side .panel-box{margin-bottom:14px;}
+  .status-line{display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:12px; color:var(--steel);}
+  .status-line b{color:var(--steel-light);}
+
+  .result-top{display:flex; gap:24px; align-items:center; margin-top:24px; flex-wrap:wrap;}
+  .grade-badge{width:120px; height:120px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:'Oswald',sans-serif; font-size:56px; font-weight:700; border:2px solid var(--cyan); flex-shrink:0;}
+  .grade-S{border-color:var(--green); color:var(--green); box-shadow:0 0 30px rgba(62,213,152,0.25);}
+  .grade-A{border-color:var(--cyan); color:var(--cyan);}
+  .grade-B{border-color:var(--steel-light); color:var(--steel-light);}
+  .grade-C{border-color:var(--amber); color:var(--amber);}
+  .grade-D{border-color:var(--red); color:var(--red);}
+  .grade-desc{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--steel); letter-spacing:0.06em; margin-top:6px;}
+  .result-stats{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:28px;}
+  @media(max-width:760px){.result-stats{grid-template-columns:repeat(2,1fr);}}
+  .rstat{background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:14px;}
+  .rstat .lbl{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--steel);}
+  .rstat .val{font-family:'Oswald',sans-serif; font-size:21px; margin-top:6px;}
+  .reason-box{margin-top:26px; background:var(--panel); border-left:2px solid var(--amber); border-radius:0 2px 2px 0; padding:16px 18px;}
+  .reason-box h3{font-size:13px; color:var(--amber); letter-spacing:0.05em;}
+  .reason-box ul{margin:10px 0 0; padding-left:18px; font-size:13px; color:var(--steel); line-height:1.8;}
+
+  footer.credit{text-align:center; padding:24px; color:var(--rivet); font-family:'IBM Plex Mono',monospace; font-size:10px;}
+
+  /* ===== Project management layer ===== */
+  .main-nav{display:none; gap:4px; padding:0 22px 12px; max-width:1180px; margin:0 auto; flex-wrap:wrap; position:relative; z-index:1;}
+  .main-nav.show{display:flex;}
+  .nav-link{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.05em; color:var(--steel); padding:7px 12px; border-radius:2px; cursor:pointer; border:1px solid transparent;}
+  .nav-link:hover{color:var(--cyan);}
+  .nav-link.active{color:var(--cyan); border-color:var(--rivet); background:var(--panel);}
+
+  .project-context-bar{display:none; align-items:center; gap:10px; padding:8px 22px; background:rgba(73,199,224,0.06); border-bottom:1px solid var(--line); font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--steel); position:relative; z-index:1;}
+  .project-context-bar.show{display:flex;}
+  .project-context-bar b{color:var(--cyan);}
+  .project-context-bar .pcb-link{color:var(--cyan); cursor:pointer; text-decoration:underline;}
+
+  .dash-cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-top:24px;}
+  .dash-card{background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:16px;}
+  .dash-card .lbl{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--steel); letter-spacing:0.06em;}
+  .dash-card .val{font-family:'Oswald',sans-serif; font-size:30px; margin-top:6px;}
+
+  .status-badge{display:inline-block; padding:3px 10px; border-radius:2px; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; border:1px solid; white-space:nowrap;}
+  .progress-bar-outer{height:6px; background:var(--panel-2); border-radius:3px; overflow:hidden; border:1px solid var(--rivet); min-width:70px;}
+  .progress-bar-inner{height:100%; background:var(--cyan);}
+
+  .proj-row{display:grid; grid-template-columns:86px 1.3fr 1fr 1fr 130px 110px 90px; gap:10px; align-items:center; padding:12px 14px; border:1px solid var(--line); border-radius:2px; margin-bottom:8px; background:var(--panel); font-size:12.5px;}
+  .proj-row.ph{background:transparent; border:none; padding:0 14px; color:var(--steel); font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:0.06em; margin-bottom:10px;}
+  @media(max-width:900px){.proj-row{grid-template-columns:1fr; gap:4px;} .proj-row.ph{display:none;}}
+
+  .tabs-row{display:flex; gap:6px; margin-top:22px; border-bottom:1px solid var(--line); flex-wrap:wrap;}
+  .tab-btn{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color:var(--steel); background:transparent; border:none; padding:10px 16px; cursor:pointer; border-bottom:2px solid transparent;}
+  .tab-btn.active{color:var(--cyan); border-bottom-color:var(--cyan);}
+  .tab-panel{display:none; margin-top:20px;}
+  .tab-panel.active{display:block;}
+  .form-row{margin-bottom:12px;}
+  .form-row label{display:block; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--steel); margin-bottom:5px;}
+  .form-row input, .form-row select{width:100%; background:var(--panel-2); border:1px solid var(--rivet); color:var(--steel-light); padding:9px 10px; border-radius:2px; font-family:'Inter',sans-serif; font-size:13px;}
+  .form-row input:focus, .form-row select:focus{outline:none; border-color:var(--cyan);}
+
+  .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:200;}
+  .modal-overlay.show{display:flex;}
+  .modal-box{background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:24px; width:320px; max-width:90vw;}
+  .modal-box h3{margin-bottom:14px; font-size:16px;}
+  .modal-box input{width:100%; margin-bottom:10px; background:var(--panel-2); border:1px solid var(--rivet); color:var(--steel-light); padding:9px 10px; border-radius:2px; font-family:'IBM Plex Mono',monospace; font-size:12.5px;}
+  .modal-box .err{color:var(--red); font-size:12px; margin-bottom:8px; display:none;}
+  .modal-tabs{display:flex; gap:8px; margin-bottom:14px;}
+  .modal-tabs button{flex:1; background:var(--panel-2); border:1px solid var(--rivet); color:var(--steel); padding:7px; border-radius:2px; font-family:'Oswald',sans-serif; font-size:11px; text-transform:uppercase; cursor:pointer;}
+  .modal-tabs button.active{border-color:var(--cyan); color:var(--cyan);}
+
+  /* Login/Register always render in the calm professional palette —
+     "should feel like professional engineering software, not a game
+     title screen" — regardless of which screen (dark game or light
+     planning platform) sits behind the overlay. Scoped locally so it
+     never leaks into the rest of the dark theme. */
+  #authModal{
+    --bg:#F6F4EF; --bg-alt:#EFEBE3; --panel:#FFFFFF; --panel-2:#F4F1EA; --line:#E1DBCD;
+    --cyan:#2E6690; --cyan-light:#17486B; --cyan-dim: rgba(46,102,144,0.16);
+    --steel:#6B7380; --steel-light:#17202B; --amber:#B5740C; --green:#1D8457; --red:#C13A2B; --rivet:#DAD3C0;
+  }
+  #authModal .modal-box{width:380px; padding:30px 28px;}
+  #authModal h3{font-family:'Oswald',sans-serif; font-size:20px; letter-spacing:0.02em; color:var(--steel-light); margin-bottom:4px;}
+  #authModal .auth-tagline{font-size:13px; color:var(--steel); margin-bottom:20px; line-height:1.6;}
+  .field-group{margin-bottom:14px;}
+  .field-group label{display:block; font-size:13px; color:var(--steel-light); margin-bottom:6px; font-weight:500;}
+  .field-group .field-wrap{position:relative;}
+  .field-group input{width:100%; margin-bottom:0; background:var(--panel-2); border:1px solid var(--rivet); color:var(--steel-light); padding:11px 12px; border-radius:4px; font-family:'Inter',sans-serif; font-size:15px;}
+  .field-group input:focus{outline:none; border-color:var(--cyan); box-shadow:0 0 0 2px var(--cyan-dim);}
+  .field-group .pw-toggle{position:absolute; right:4px; top:4px; bottom:4px; background:none; border:none; color:var(--steel); font-size:12px; font-family:'IBM Plex Mono',monospace; cursor:pointer; padding:0 10px;}
+  .field-group .pw-toggle:hover{color:var(--cyan);}
+  .field-err{color:var(--red); font-size:12.5px; margin-top:5px; display:none;}
+  .field-err.show{display:block;}
+  #authModal .btn.primary{width:100%; padding:12px; font-size:14px; min-height:44px;}
+  #authModal .btn.primary:disabled{opacity:0.6; cursor:not-allowed;}
+  .ships-list{max-height:260px; overflow-y:auto;}
+  .ships-list .srow{display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border:1px solid var(--line); border-radius:2px; margin-bottom:6px; cursor:pointer; font-size:12.5px;}
+  .ships-list .srow:hover{border-color:var(--cyan);}
+</style>
+</head>
+<body>
+<div class="bp-bg"></div>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span>SHIPFORGE</div>
+    <div class="stepper" id="stepper"></div>
+    <div class="hud-mini" id="hudMini"></div>
+    <div class="auth-area" id="authArea"></div>
+  </div>
+  <div class="main-nav" id="mainNav">
+    <div class="nav-link" data-nav="dashboard" onclick="goApp('dashboard')">แดชบอร์ด</div>
+    <div class="nav-link" data-nav="projects" onclick="goApp('projects')">โครงการออกแบบเรือ</div>
+    <div class="nav-link" data-nav="shipyards" onclick="goApp('shipyards')">อู่ต่อเรือ</div>
+    <div class="nav-link" onclick="openShipsModal()">เรือของฉัน (2D)</div>
+    <div class="nav-link" onclick="startNewShipFlow()" title="เครื่องมือออกแบบ 2D เชิงแนวคิด — ไม่ใช่การออกแบบที่ผ่านการรับรอง">+ เครื่องมือออกแบบเบื้องต้น (2D)</div>
+  </div>
+  <div class="project-context-bar" id="projectContextBar"></div>
+
+  <!-- 1. HOME -->
+  <section class="screen active" id="screen-home">
+    <div class="home-hero">
+      <div>
+        <div class="eyebrow">DRY DOCK SIMULATION SYSTEM</div>
+        <h1 class="title-xl">SHIP<span class="accent">FORGE</span></h1>
+        <p class="sub">ระบบจำลองการออกแบบ ต่อเรือ และทดสอบเรือกลางทะเล เลือกภารกิจ วางโครงสร้างลงบน Blueprint ให้ถูกโซนและเชื่อมต่อกันถูกต้อง แล้วปล่อยเรือลงทดสอบในทะเลจริง</p>
+        <div class="btn-row">
+          <button class="btn primary" onclick="startNewShipFlow()">เริ่มต่อเรือ →</button>
+          <button class="btn ghost" onclick="toggleHowTo()">วิธีการใช้งาน</button>
+        </div>
+        <div class="howto-panel" id="howtoPanel">
+          <div class="eyebrow" style="margin-bottom:0;">ขั้นตอนการทำงาน</div>
+          <ol>
+            <li><b>เลือกภารกิจ</b> — เลือกประเภทเรือตามวัตถุประสงค์การใช้งาน</li>
+            <li><b>ออกแบบ</b> — วางชิ้นส่วนให้ถูก "โซน" บน Blueprint และเชื่อมต่อ Engine กับ Fuel Tank ให้ใกล้กัน</li>
+            <li><b>ตรวจสอบ</b> — รัน Final Inspection รวมถึงตรวจ Structural Stress</li>
+            <li><b>ปล่อยเรือ</b> — ยืนยันและชมลำดับการปล่อยเรือ</li>
+            <li><b>เดินเรือ</b> — ทดสอบเรือจริงที่คุณต่อ กลางทะเลพร้อมสภาพอากาศแบบสุ่ม</li>
+            <li><b>ดูผลลัพธ์</b> — รับเกรดและวิเคราะห์จุดที่ควรปรับปรุง</li>
+            <li><b>ปรับปรุง</b> — กลับไปแก้ Blueprint แล้วทดสอบใหม่ได้ไม่จำกัด</li>
+          </ol>
+        </div>
+        <div class="flow-steps">
+          <div class="flow-chip"><b>01</b> เลือกเรือ</div><div class="flow-arrow">→</div>
+          <div class="flow-chip"><b>02</b> ออกแบบ</div><div class="flow-arrow">→</div>
+          <div class="flow-chip"><b>03</b> สร้าง</div><div class="flow-arrow">→</div>
+          <div class="flow-chip"><b>04</b> ตรวจสอบ</div><div class="flow-arrow">→</div>
+          <div class="flow-chip"><b>05</b> ปล่อยเรือ</div><div class="flow-arrow">→</div>
+          <div class="flow-chip"><b>06</b> เดินเรือ</div><div class="flow-arrow">→</div>
+          <div class="flow-chip"><b>07</b> ผลลัพธ์</div>
+        </div>
+      </div>
+      <div class="hull-diagram">
+        <div class="scan-line"></div>
+        <svg viewBox="0 0 420 260" fill="none" stroke="var(--cyan)" stroke-width="1">
+          <path d="M30 150 Q30 190 90 195 L330 195 Q390 190 390 150 L390 90 L30 90 Z" stroke-opacity="0.7"/>
+          <line x1="30" y1="90" x2="30" y2="60" stroke-opacity="0.35"/>
+          <line x1="390" y1="90" x2="390" y2="60" stroke-opacity="0.35"/>
+          <path d="M30 90 L60 55 L360 55 L390 90" stroke-opacity="0.5"/>
+          <rect x="150" y="30" width="70" height="30" stroke-opacity="0.6"/>
+          <line x1="60" y1="90" x2="60" y2="195" stroke-dasharray="2 3" stroke-opacity="0.25"/>
+          <line x1="150" y1="90" x2="150" y2="195" stroke-dasharray="2 3" stroke-opacity="0.25"/>
+          <line x1="270" y1="90" x2="270" y2="195" stroke-dasharray="2 3" stroke-opacity="0.25"/>
+          <line x1="360" y1="90" x2="360" y2="195" stroke-dasharray="2 3" stroke-opacity="0.25"/>
+          <line x1="20" y1="90" x2="20" y2="195" stroke-opacity="0.4"/>
+          <line x1="14" y1="90" x2="26" y2="90" stroke-opacity="0.4"/>
+          <line x1="14" y1="195" x2="26" y2="195" stroke-opacity="0.4"/>
+          <text x="4" y="145" fill="var(--cyan)" stroke="none" font-family="IBM Plex Mono" font-size="9" transform="rotate(-90 10,145)">HULL DEPTH</text>
+          <line x1="30" y1="215" x2="390" y2="215" stroke-opacity="0.4"/>
+          <text x="180" y="230" fill="var(--cyan)" stroke="none" font-family="IBM Plex Mono" font-size="9">LOA — LENGTH OVERALL</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. MISSION -->
+  <section class="screen" id="screen-mission">
+    <div class="eyebrow">STAGE 01 — MISSION BRIEF</div>
+    <h2 class="title-xl" style="font-size:38px;">เลือกจุดประสงค์ &amp; ประเภทเรือ</h2>
+    <p class="sub">แต่ละภารกิจต้องการคุณสมบัติของเรือที่แตกต่างกัน เลือกให้เหมาะกับเป้าหมาย</p>
+    <div class="type-grid" id="typeGrid"></div>
+    <div class="mission-brief" id="missionBrief"></div>
+    <div class="btn-row">
+      <button class="btn ghost" onclick="goTo('home')">← ย้อนกลับ</button>
+      <button class="btn primary" id="toBuilderBtn" onclick="goTo('builder')" disabled>ไปยัง Ship Builder →</button>
+    </div>
+  </section>
+
+  <!-- 3. BUILDER -->
+  <section class="screen" id="screen-builder">
+    <div class="eyebrow">STAGE 02–03 — BLUEPRINT / SHIP BUILDER</div>
+    <h2 class="title-xl" style="font-size:34px;">ออกแบบและต่อเรือ</h2>
+    <p class="sub" id="builderMissionNote"></p>
+
+    <div class="builder-grid">
+      <div class="panel-box">
+        <div class="panel-title">ชิ้นส่วน <span>ลากวางบน Blueprint</span></div>
+        <div id="partsPalette"></div>
+        <div class="panel-title" style="margin-top:16px;">วัสดุตัวเรือ</div>
+        <div class="material-select" id="materialSelect"></div>
+      </div>
+
+      <div class="blueprint-wrap">
+        <div class="panel-title">BLUEPRINT — TOP VIEW <span id="cellCount">0/50 CELLS</span></div>
+        <div class="blueprint-grid" id="blueprintGrid"></div>
+        <div class="zone-legend" id="zoneLegend"></div>
+        <div class="ship-name-row">
+          <input type="text" id="shipNameInput" placeholder="ตั้งชื่อเรือของคุณ..." maxlength="24">
+        </div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn" onclick="saveShipToAccount()">💾 Save to Account</button>
+          <button class="btn" onclick="openShipsModal()">📂 My Ships</button>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">LIVE READOUT</div>
+        <div id="gaugesBox"></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn ghost" onclick="goTo('mission')">← ย้อนกลับ</button>
+      <button class="btn primary" onclick="goTo('inspection')">ไปตรวจสอบความปลอดภัย →</button>
+    </div>
+  </section>
+
+  <!-- 4. INSPECTION -->
+  <section class="screen" id="screen-inspection">
+    <div class="eyebrow">STAGE 04 — SAFETY INSPECTION</div>
+    <h2 class="title-xl" style="font-size:34px;">ตรวจสอบก่อนปล่อยเรือ</h2>
+    <p class="sub">กด Run Final Inspection เพื่อวิเคราะห์เรือของคุณก่อนนำลงทะเล</p>
+    <div class="btn-row" style="margin-top:18px;">
+      <button class="btn primary" onclick="runInspection()">▶ Run Final Inspection</button>
+    </div>
+
+    <div class="inspect-wrap" id="inspectWrap" style="display:none;">
+      <div>
+        <div id="checksList"></div>
+        <ul class="issue-list" id="issueList"></ul>
+      </div>
+      <div class="score-card">
+        <div class="score-lbl">OVERALL SAFETY SCORE</div>
+        <div class="score-num" id="scoreNum">--</div>
+        <div class="badge" id="approvalBadge"></div>
+        <button class="btn" style="margin-top:14px; width:100%;" onclick="verifyViaServer()">🌐 Verify via Server</button>
+        <div id="serverVerifyResult" style="margin-top:10px; font-size:11.5px; font-family:'IBM Plex Mono',monospace;"></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn ghost" onclick="goTo('builder')">← กลับไปแก้ Blueprint</button>
+      <button class="btn primary" id="toLaunchBtn" onclick="goTo('launch')" disabled>ไปยัง Launch Sequence →</button>
+    </div>
+  </section>
+
+  <!-- 5. LAUNCH -->
+  <section class="screen" id="screen-launch">
+    <div class="eyebrow">STAGE 05 — LAUNCH SEQUENCE</div>
+    <h2 class="title-xl" style="font-size:34px;">เตรียมปล่อยเรือ</h2>
+    <div class="launch-summary" id="launchSummary"></div>
+
+    <div class="dock-scene" id="dockScene">
+      <div class="water-line"></div>
+      <div class="ship-emoji">🚢</div>
+    </div>
+
+    <div class="launch-log" id="launchLog"></div>
+
+    <div class="btn-row">
+      <button class="btn ghost" onclick="goTo('inspection')">← ย้อนกลับ</button>
+      <button class="btn primary" id="launchBtn" onclick="startLaunch()">🚀 Launch Vessel</button>
+    </div>
+  </section>
+
+  <!-- 6. SEA TRIAL -->
+  <section class="screen" id="screen-trial">
+    <div class="eyebrow">STAGE 06 — SEA TRIAL</div>
+    <h2 class="title-xl" style="font-size:34px;">การเดินเรือทดสอบ</h2>
+
+    <div class="trial-layout">
+      <div>
+        <div class="sea-scene" id="seaScene">
+          <div class="stars"></div>
+          <div class="wave wave1"></div>
+          <div class="wave wave2"></div>
+          <div class="rain-overlay" id="rainOverlay"></div>
+          <div class="wind-overlay" id="windOverlay"></div>
+          <div class="boat" id="boatEl">
+            <div class="boat-half half-left" id="boatHalfLeft"></div>
+            <div class="boat-half half-right" id="boatHalfRight"></div>
+            <div class="boat-break-flash" id="boatBreakFlash">💥</div>
+          </div>
+          <div class="event-flash" id="eventFlash"></div>
+          <div class="lightning-overlay" id="lightningOverlay"></div>
+        </div>
+        <div class="trial-stats" id="trialStats"></div>
+        <div class="event-log" id="eventLog"></div>
+      </div>
+      <div class="trial-side">
+        <div class="panel-box">
+          <div class="panel-title">VESSEL STATUS</div>
+          <div id="vesselStatus"></div>
+        </div>
+        <div class="panel-box">
+          <div class="panel-title">MISSION TARGET</div>
+          <div class="status-line">ระยะทางเป้าหมาย <b id="targetDistLbl"></b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row" id="trialBtnRow" style="display:none;">
+      <button class="btn primary" onclick="goTo('result')">ดูผลการทดสอบ →</button>
+    </div>
+  </section>
+
+  <!-- 7. RESULT -->
+  <section class="screen" id="screen-result">
+    <div class="eyebrow">STAGE 07 — SEA TRIAL RESULT</div>
+    <h2 class="title-xl" style="font-size:34px;">สรุปผลการเดินเรือ</h2>
+
+    <div class="result-top">
+      <div class="grade-badge" id="gradeBadge">--</div>
+      <div>
+        <div class="title-xl" style="font-size:22px;" id="gradeTitle"></div>
+        <div class="grade-desc" id="gradeDesc"></div>
+      </div>
+    </div>
+
+    <div class="result-stats" id="resultStats"></div>
+
+    <div class="reason-box">
+      <h3>ANALYSIS — สาเหตุหลักที่ส่งผลต่อผลลัพธ์</h3>
+      <ul id="reasonList"></ul>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn ghost" onclick="resetAll()">🔄 สร้างเรือใหม่ทั้งหมด</button>
+      <button class="btn primary" onclick="improveVessel()">🛠 Improve Vessel — กลับไปปรับปรุง →</button>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="screen" id="screen-dashboard">
+    <div class="eyebrow">ภาพรวมระบบ</div>
+    <h2 class="title-xl" style="font-size:34px;">แดชบอร์ด</h2>
+    <p class="sub">สรุปภาพรวมโครงการต่อเรือทั้งหมดของคุณ</p>
+    <div class="dash-cards" id="dashCards"></div>
+    <div class="panel-title" style="margin-top:30px;">โครงการล่าสุด</div>
+    <div class="proj-row ph">
+      <div>รหัส</div><div>ชื่อโครงการ</div><div>เรือ</div><div>ลูกค้า</div><div>สถานะ</div><div>ความคืบหน้า</div><div>กำหนดส่ง</div>
+    </div>
+    <div id="dashRecentProjects"></div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="openCreateProjectModal()">+ สร้างโครงการ</button>
+      <button class="btn ghost" onclick="goApp('projects')">ดูโครงการทั้งหมด →</button>
+    </div>
+  </section>
+
+  <!-- PROJECTS LIST -->
+  <section class="screen" id="screen-projects">
+    <div class="eyebrow">จัดการโครงการ</div>
+    <h2 class="title-xl" style="font-size:34px;">โครงการทั้งหมด</h2>
+    <p class="sub">สร้าง ติดตาม และเปิดโครงการต่อเรือของคุณ</p>
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn primary" onclick="openCreateProjectModal()">+ สร้างโครงการ</button>
+    </div>
+    <div class="proj-row ph" style="margin-top:22px;">
+      <div>รหัส</div><div>ชื่อโครงการ</div><div>เรือ</div><div>ลูกค้า</div><div>สถานะ</div><div>ความคืบหน้า</div><div>กำหนดส่ง</div>
+    </div>
+    <div id="projectsList"></div>
+  </section>
+
+  <!-- SHIPYARD DISCOVERY -->
+  <section class="screen" id="screen-shipyards">
+    <div class="eyebrow">ค้นหาอู่ต่อเรือ</div>
+    <h2 class="title-xl" style="font-size:34px;">อู่ต่อเรือ</h2>
+    <div class="howto-panel open" style="border-left:2px solid var(--amber);">
+      ⚠ รายการทั้งหมดในหน้านี้เป็น<b>ข้อมูลตัวอย่าง (sample data)</b> สำหรับสาธิตการจับคู่เท่านั้น ไม่ใช่ข้อมูลอู่ต่อเรือจริงที่ผ่านการตรวจสอบ กรุณาตรวจสอบและติดต่ออู่ต่อเรือโดยตรงก่อนตัดสินใจ
+    </div>
+    <div class="form-row" style="max-width:320px; margin-top:16px;"><label>กรองตามประเภทเรือ</label>
+      <select id="syFilterType" onchange="loadShipyardsScreen()"><option value="">— ทั้งหมด —</option></select>
+    </div>
+    <div id="shipyardsList" style="margin-top:14px;"></div>
+  </section>
+
+  <!-- PROJECT DETAIL -->
+  <section class="screen" id="screen-project-detail">
+    <div class="eyebrow">รายละเอียดโครงการ</div>
+    <h2 class="title-xl" style="font-size:30px;" id="pdTitle">—</h2>
+    <div class="sub" id="pdSubtitle"></div>
+
+    <div class="tabs-row">
+      <button class="tab-btn active" data-tab="overview" onclick="switchPdTab('overview')">ภาพรวม</button>
+      <button class="tab-btn" data-tab="requirements" onclick="switchPdTab('requirements')">ความต้องการ</button>
+      <button class="tab-btn" data-tab="recommend" onclick="switchPdTab('recommend')">แบบเรือและข้อเสนอ</button>
+      <button class="tab-btn" data-tab="materials" onclick="switchPdTab('materials')">วัสดุและต้นทุน</button>
+      <button class="tab-btn" data-tab="shipyards" onclick="switchPdTab('shipyards')">อู่ต่อเรือ</button>
+      <button class="tab-btn" data-tab="design" onclick="switchPdTab('design')">เครื่องมือออกแบบเบื้องต้น (2D)</button>
+      <button class="tab-btn" data-tab="inspect" onclick="switchPdTab('inspect')">การตรวจสอบ</button>
+      <button class="tab-btn" data-tab="trial" onclick="switchPdTab('trial')">การทดสอบทางทะเล</button>
+    </div>
+
+    <div class="tab-panel active" id="pdTab-overview">
+      <div class="launch-summary" id="pdSummaryCards" style="margin-top:20px;"></div>
+      <div class="panel-box" style="margin-top:20px; max-width:480px;">
+        <div class="panel-title">แก้ไขข้อมูลโครงการ</div>
+        <div class="form-row"><label>ชื่อโครงการ</label><input id="pdFormName"></div>
+        <div class="form-row"><label>ชื่อลูกค้า</label><input id="pdFormClient"></div>
+        <div class="form-row"><label>สถานะ</label><select id="pdFormStatus"></select></div>
+        <div class="form-row"><label>ความคืบหน้า (%)</label><input type="number" id="pdFormProgress" min="0" max="100"></div>
+        <div class="form-row"><label>วันที่เริ่ม</label><input type="date" id="pdFormStart"></div>
+        <div class="form-row"><label>กำหนดส่ง</label><input type="date" id="pdFormTarget"></div>
+        <div class="btn-row" style="margin-top:4px;">
+          <button class="btn primary" onclick="saveProjectDetail()">บันทึก</button>
+          <button class="btn danger" onclick="deleteCurrentProject()">ลบโครงการ</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="pdTab-requirements">
+      <p class="sub">กรอกความต้องการของโครงการให้ครบถ้วนที่สุด — ระบบจะใช้ข้อมูลนี้สร้างข้อเสนอแนวทางออกแบบเบื้องต้นให้อัตโนมัติในแท็บ "ข้อเสนอการออกแบบ"</p>
+      <div class="panel-box" style="margin-top:14px; max-width:620px;">
+        <div class="panel-title">ข้อมูลโครงการ</div>
+        <div class="form-row"><label>ประเภทเรือ</label>
+          <select id="reqVesselType"><option value="">— เลือกประเภทเรือ —</option></select>
+        </div>
+        <div class="form-row"><label>วัตถุประสงค์การใช้งาน</label><input id="reqIntendedUse" placeholder="เช่น ขนส่งสินค้าระหว่างท่าเรือภายในประเทศ"></div>
+        <div class="form-row"><label>พื้นที่ปฏิบัติการ</label><input id="reqOperatingArea" placeholder="เช่น อ่าวไทย, ชายฝั่งอันดามัน"></div>
+
+        <div class="panel-title" style="margin-top:18px;">ขนาด / กำลังคน</div>
+        <div class="form-row"><label>จำนวนผู้โดยสาร (ถ้ามี)</label><input type="number" id="reqPassengers" min="0"></div>
+        <div class="form-row"><label>น้ำหนักบรรทุกสินค้า (ตัน)</label><input type="number" id="reqCargoTons" min="0"></div>
+        <div class="form-row"><label>ความเร็วที่ต้องการ (น็อต)</label><input type="number" id="reqSpeed" min="0"></div>
+        <div class="form-row"><label>จำนวนลูกเรือ</label><input type="number" id="reqCrew" min="0"></div>
+        <div class="form-row"><label>หมายเหตุเพิ่มเติม</label><textarea id="reqNotes" rows="3" style="width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--steel-light); border-radius:2px; padding:8px; font-family:inherit;"></textarea></div>
+
+        <div class="panel-title" style="margin-top:18px;">งบประมาณ / กำหนดเวลา</div>
+        <div class="form-row"><label>งบประมาณต่ำสุด (บาท)</label><input type="number" id="reqBudgetMin" min="0"></div>
+        <div class="form-row"><label>งบประมาณสูงสุด (บาท)</label><input type="number" id="reqBudgetMax" min="0"></div>
+        <div class="form-row"><label>ระยะเวลาที่คาดหวัง (เดือน)</label><input type="number" id="reqDuration" min="0"></div>
+
+        <div class="btn-row" style="margin-top:4px;">
+          <button class="btn primary" onclick="savePdRequirements()">บันทึกความต้องการ</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="pdTab-recommend">
+      <p class="sub">ข้อเสนอแนวทางออกแบบนี้สร้างจาก <b>กฎเกณฑ์วิศวกรรมเบื้องต้นแบบโปร่งใส (rule-based)</b> ไม่ใช่ AI/Machine Learning และ<b>ไม่ใช่การคำนวณที่ผ่านการรับรองทางวิศวกรรมเรือ</b> — ใช้เพื่อเปรียบเทียบแนวทางก่อนปรึกษาวิศวกรต่อเรือหรืออู่ต่อเรือจริงเท่านั้น</p>
+      <div class="btn-row" style="margin-top:10px;"><button class="btn primary" onclick="generatePdRecommendations()">⚙ สร้างข้อเสนอการออกแบบ</button></div>
+      <div id="pdRecommendList" style="margin-top:18px;"></div>
+    </div>
+
+    <div class="tab-panel" id="pdTab-materials">
+      <p class="sub">ข้อมูลเปรียบเทียบคุณสมบัติวัสดุ (ต้นทุน/น้ำหนัก/การกัดกร่อน/การบำรุงรักษา/ความทนทาน/การขึ้นรูป) เป็นข้อมูลอ้างอิงทางวิศวกรรมทั่วไป <b>ไม่ใช่ราคาตลาดที่มีแหล่งอ้างอิงและวันที่ปรับปรุง</b></p>
+      <div id="pdMaterialInfo" style="margin-top:14px;"></div>
+      <div class="panel-title" style="margin-top:26px;">สรุปต้นทุนแยกตามหมวด</div>
+      <p class="sub">อ้างอิงจากข้อเสนอการออกแบบล่าสุดในแท็บ "แบบเรือและข้อเสนอ" — หากยังไม่มีข้อเสนอ กรุณาไปสร้างก่อน</p>
+      <div id="pdCostBreakdown" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="tab-panel" id="pdTab-shipyards">
+      <p class="sub">อู่ต่อเรือที่บันทึกไว้สำหรับโครงการนี้ — ข้อมูลทั้งหมดเป็นข้อมูลตัวอย่างสำหรับสาธิตเท่านั้น</p>
+      <div class="btn-row"><button class="btn primary" onclick="goApp('shipyards')">🔍 ค้นหาอู่ต่อเรือเพิ่มเติม →</button></div>
+      <div id="pdShipyardShortlist" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="tab-panel" id="pdTab-design">
+      <div class="howto-panel open" style="border-left:2px solid var(--amber); margin-bottom:16px;">
+        ⚠ เครื่องมือนี้เป็น<b>แบบจำลองออกแบบเรือ 2 มิติเชิงแนวคิด</b> (conceptual) สำหรับทดลองวางผังและดูพลวัตเบื้องต้นเท่านั้น ไม่ใช่การออกแบบที่ผ่านการรับรองทางวิศวกรรม และไม่ใช่สิ่งที่ใช้ยื่นก่อสร้างจริง
+      </div>
+      <p class="sub">เปิดเครื่องมือออกแบบเรือสำหรับโครงการนี้ — ระบบจะโหลด Blueprint ของเรือที่ผูกกับโครงการนี้มาให้แก้ไขได้ทันที (ถ้ายังไม่มี จะเริ่มออกแบบใหม่) และเมื่อกด "Save to Account" ในหน้าออกแบบ จะบันทึกทับเรือลำเดิม ไม่สร้างเรือใหม่ซ้ำ</p>
+      <div class="btn-row"><button class="btn primary" onclick="openDesignForProject()">🛠 เปิดเครื่องมือออกแบบ →</button></div>
+    </div>
+
+    <div class="tab-panel" id="pdTab-inspect">
+      <p class="sub">รันการตรวจสอบความปลอดภัยทางวิศวกรรมของเรือในโครงการนี้ (คำนวณผ่าน Backend)</p>
+      <div class="btn-row"><button class="btn primary" onclick="openInspectForProject()">🔍 ไปที่หน้าตรวจสอบ →</button></div>
+    </div>
+
+    <div class="tab-panel" id="pdTab-trial">
+      <p class="sub">ประวัติการทดสอบทางทะเลของเรือในโครงการนี้</p>
+      <div id="pdTrialHistory"></div>
+      <div class="btn-row"><button class="btn primary" onclick="openInspectForProject()">⚓ ไปที่หน้าตรวจสอบเพื่อเริ่มทดสอบ →</button></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn ghost" onclick="goApp('projects')">← กลับไปรายการโครงการ</button>
+    </div>
+  </section>
+
+  <footer class="credit">SHIPFORGE — SHIP DESIGN &amp; CONSTRUCTION MANAGEMENT PLATFORM</footer>
+</div>
+
+<div class="modal-overlay" id="createProjectModal">
+  <div class="modal-box">
+    <h3>สร้างโครงการใหม่</h3>
+    <div class="err" id="cpErr"></div>
+    <div class="form-row"><label>ผูกกับแบบเรือ (ไม่บังคับ)</label><select id="cpShip"></select></div>
+    <div class="ts" style="color:var(--steel); margin:-8px 0 10px;">ไม่มีแบบเรือก็เริ่มได้ — กรอกความต้องการในแท็บ "ความต้องการ" ของโครงการเพื่อให้ระบบแนะนำแนวทางออกแบบ</div>
+    <div class="form-row"><label>ชื่อโครงการ</label><input id="cpName" placeholder="เช่น โครงการเรือขนส่งสินค้า A"></div>
+    <div class="form-row"><label>ชื่อลูกค้า</label><input id="cpClient" placeholder="ไม่บังคับ"></div>
+    <div class="form-row"><label>กำหนดส่ง</label><input type="date" id="cpTarget"></div>
+    <button class="btn primary" style="width:100%;" onclick="submitCreateProject()">สร้างโครงการ</button>
+    <button class="btn ghost" style="width:100%; margin-top:8px;" onclick="closeCreateProjectModal()">ยกเลิก</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="authModal">
+  <div class="modal-box">
+    <h3 id="authHeading">เข้าสู่ระบบ</h3>
+    <div class="auth-tagline">เข้าสู่ระบบเพื่อสร้างและจัดการโครงการออกแบบเรือของคุณ</div>
+    <div class="modal-tabs">
+      <button id="tabLogin" class="active" onclick="switchAuthTab('login')">เข้าสู่ระบบ</button>
+      <button id="tabRegister" onclick="switchAuthTab('register')">สมัครสมาชิก</button>
+    </div>
+    <div class="err" id="authErr"></div>
+    <div id="loginForm">
+      <div class="field-group">
+        <label for="loginUsername">ชื่อผู้ใช้</label>
+        <input type="text" id="loginUsername" placeholder="เช่น somchai88" autocomplete="username">
+        <div class="field-err" id="errLoginUsername"></div>
+      </div>
+      <div class="field-group">
+        <label for="loginPassword">รหัสผ่าน</label>
+        <div class="field-wrap">
+          <input type="password" id="loginPassword" placeholder="กรอกรหัสผ่านของคุณ" autocomplete="current-password">
+          <button type="button" class="pw-toggle" onclick="togglePwVisibility('loginPassword', this)">แสดง</button>
+        </div>
+        <div class="field-err" id="errLoginPassword"></div>
+      </div>
+      <button class="btn primary" id="loginSubmitBtn" onclick="submitLogin()">เข้าสู่ระบบ</button>
+    </div>
+    <div id="registerForm" style="display:none;">
+      <div class="field-group">
+        <label for="regUsername">ชื่อผู้ใช้</label>
+        <input type="text" id="regUsername" placeholder="เช่น somchai88" autocomplete="username">
+        <div class="field-err" id="errRegUsername"></div>
+      </div>
+      <div class="field-group">
+        <label for="regEmail">อีเมล</label>
+        <input type="email" id="regEmail" placeholder="เช่น somchai@email.com" autocomplete="email">
+        <div class="field-err" id="errRegEmail"></div>
+      </div>
+      <div class="field-group">
+        <label for="regPassword">รหัสผ่าน</label>
+        <div class="field-wrap">
+          <input type="password" id="regPassword" placeholder="อย่างน้อย 8 ตัวอักษร" autocomplete="new-password">
+          <button type="button" class="pw-toggle" onclick="togglePwVisibility('regPassword', this)">แสดง</button>
+        </div>
+        <div class="field-err" id="errRegPassword"></div>
+      </div>
+      <button class="btn primary" id="registerSubmitBtn" onclick="submitRegister()">สมัครสมาชิก</button>
+    </div>
+    <button class="btn ghost" style="width:100%; margin-top:10px;" onclick="closeAuthModal()">ยกเลิก</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="shipsModal">
+  <div class="modal-box">
+    <h3>My Ships</h3>
+    <div class="ships-list" id="shipsList"></div>
+    <button class="btn ghost" style="width:100%; margin-top:10px;" onclick="closeShipsModal()">Close</button>
+  </div>
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+const API_BASE = window.SHIPFORGE_API_BASE || 'http://localhost:8000/api';
+
+const STAGES = [
+  {key:'home', label:'HOME'},
+  {key:'mission', label:'MISSION'},
+  {key:'builder', label:'BUILD'},
+  {key:'inspection', label:'INSPECT'},
+  {key:'launch', label:'LAUNCH'},
+  {key:'trial', label:'SEA TRIAL'},
+  {key:'result', label:'RESULT'},
+];
+
+const SHIP_TYPES = [
+  {key:'fishing', label:'เรือประมง', icon:'🎣', desc:'ออกแบบเพื่อความคงทนและระยะเดินทางไกล ในสภาพทะเลไม่แน่นอน', focus:['Stability','Range','Hull'], target:180},
+  {key:'cruise', label:'เรือสำราญ/โดยสาร', icon:'🛳️', desc:'เน้นความปลอดภัยผู้โดยสารและความมั่นคงของตัวเรือสูงสุด', focus:['Safety','Stability','Comfort'], target:260},
+  {key:'cargo', label:'เรือขนส่งสินค้า', icon:'📦', desc:'ต้องการพื้นที่บรรทุกสูงสุดพร้อมรักษาระยะทางให้เพียงพอ', focus:['Cargo','Range','Structural'], target:420},
+  {key:'tanker', label:'เรือบรรทุกน้ำมัน', icon:'🛢️', desc:'โครงสร้างต้องแข็งแรงเป็นพิเศษ ควบคุมสมดุลน้ำหนักอย่างเคร่งครัด', focus:['Structural','Balance','Safety'], target:480},
+  {key:'patrol', label:'เรือ Patrol', icon:'🛡️', desc:'ต้องการความเร็วและความน่าเชื่อถือของเครื่องยนต์เพื่อภารกิจเร่งด่วน', focus:['Engine','Reliability','Speed'], target:240},
+  {key:'speedboat', label:'Speedboat', icon:'🚤', desc:'เน้นความเร็วสูงสุด น้ำหนักเบา แลกกับความจุและระยะทาง', focus:['Speed','Engine','Weight'], target:130},
+];
+
+const PART_TYPES = {
+  hull:      {label:'Hull',          icon:'🛶', baseWeight:400, buoyancy:60, structural:18, desc:'จำเป็น — โครงสร้างหลัก'},
+  engine:    {label:'Engine',        icon:'⚙️', baseWeight:150, enginePower:120, desc:'ให้กำลังขับเคลื่อน'},
+  fuelTank:  {label:'Fuel Tank',     icon:'⛽', baseWeight:60,  fuelCapacity:520, desc:'เพิ่มความจุเชื้อเพลิง'},
+  cargoHold: {label:'Cargo Hold',    icon:'📦', baseWeight:80,  cargoCapacity:300, desc:'เพิ่มพื้นที่บรรทุก'},
+  bridge:    {label:'Bridge',        icon:'🎛️', baseWeight:40,  safety:10, structural:5, desc:'ห้องควบคุมเรือ'},
+  stabilizer:{label:'Stabilizer',    icon:'⚖️', baseWeight:50,  stability:26, desc:'เพิ่มความมั่นคง'},
+  powerSys:  {label:'Power System',  icon:'🔋', baseWeight:45,  reliability:22, safety:5, desc:'สำรองไฟ / ความเชื่อถือได้'},
+  safetySys: {label:'Safety System', icon:'🦺', baseWeight:30,  safety:26, desc:'ระบบความปลอดภัย'},
+};
+
+/* Zone rules: which band of the blueprint each part belongs in.
+   Columns 0-9: 0-1 bow, 2-4 cargo, 5-7 fuel, 8-9 engine. Row 4 (bottom) = keel. */
+const PART_META = {
+  hull:      {zone:'any',    zoneLabel:'วางได้ทุกที่'},
+  engine:    {zone:'engine', zoneLabel:'ท้ายเรือ', connectsTo:'fuelTank', maxDist:4},
+  fuelTank:  {zone:'fuel',   zoneLabel:'กลางเรือ (ท้าย)', needsSupport:true},
+  cargoHold: {zone:'cargo',  zoneLabel:'กลางเรือ (หน้า)', needsSupport:true},
+  bridge:    {zone:'bow',    zoneLabel:'หัวเรือ'},
+  stabilizer:{zone:'keel',   zoneLabel:'กระดูกงู (แถวล่างสุด)'},
+  powerSys:  {zone:'engine', zoneLabel:'ท้ายเรือ'},
+  safetySys: {zone:'any',    zoneLabel:'วางได้ทุกที่'},
+};
+
+const ZONE_HEX = { bow:'#49C7E0', cargo:'#3ED598', fuel:'#B07CF2', engine:'#F2A93B', keel:'#2DD4BF', any:'#8B96A1' };
+const ZONE_NAMES = { bow:'Bow — Bridge', cargo:'Cargo zone', fuel:'Fuel zone', engine:'Engine — Stern', keel:'Keel (bottom row)' };
+
+function cellZone(x,y){
+  if(y===4) return 'keel';
+  if(x<=1) return 'bow';
+  if(x<=4) return 'cargo';
+  if(x<=7) return 'fuel';
+  return 'engine';
+}
+function zoneMatches(zone,x,y){
+  if(zone==='any') return true;
+  if(zone==='keel') return y===4;
+  if(zone==='bow') return x<=1;
+  if(zone==='cargo') return x>=2 && x<=4;
+  if(zone==='fuel') return x>=5 && x<=7;
+  if(zone==='engine') return x>=8;
+  return true;
+}
+
+const MATERIALS = [
+  {key:'wood',    label:'ไม้ (Wood)',              weightMult:0.55, strengthMult:0.45},
+  {key:'aluminum',label:'Aluminum',                weightMult:0.7,  strengthMult:0.7},
+  {key:'steel',   label:'Steel',                   weightMult:1.0,  strengthMult:1.0},
+  {key:'hsteel',  label:'High-strength Steel',     weightMult:1.25, strengthMult:1.45},
+  {key:'composite',label:'Composite',              weightMult:0.5,  strengthMult:1.15},
+];
+
+const EVENTS = [
+  {key:'swell',   label:'คลื่นสูง',           icon:'🌊', weight:22, dmg:6,  stabHit:14, spd:0.7},
+  {key:'monsoon', label:'มรสุม',              icon:'🌧️', weight:16, dmg:10, stabHit:18, spd:0.55},
+  {key:'storm',   label:'พายุ',               icon:'⛈️', weight:10, dmg:16, stabHit:26, spd:0.4},
+  {key:'rain',    label:'ฝนฟ้าคะนอง',        icon:'🌩️', weight:18, dmg:4,  stabHit:8,  spd:0.85},
+  {key:'wind',    label:'ลมแรง',              icon:'💨', weight:18, dmg:5,  stabHit:10, spd:0.75},
+  {key:'overheat',label:'เครื่องยนต์ร้อน',    icon:'🔥', weight:10, dmg:8,  stabHit:0,  spd:0.6, engineHit:true},
+  {key:'engfail', label:'ระบบเครื่องยนต์ขัดข้อง', icon:'🛑', weight:6,  dmg:14, stabHit:0, spd:0.3, engineHit:true},
+];
+const WEATHER_BREAK_CHANCE = {swell:0.10, monsoon:0.20, storm:0.38, rain:0.04, wind:0.07};
+
+/* ================= STATE ================= */
+let state = {
+  stage:'home',
+  shipType:null,
+  material:'steel',
+  parts:[],
+  shipName:'',
+  safetyScore:0,
+  approved:false,
+  checks:{},
+  serverId:null,
+};
+let idCounter = 1;
+let trial = null;
+let trialTimer = null;
+let authToken = localStorage.getItem('shipforge_token') || null;
+let currentUser = null;
+
+/* ================= PROJECT MANAGEMENT LAYER ================= */
+const STATUS_TH = {PLANNING:'วางแผน', DESIGN:'ออกแบบ', CONSTRUCTION:'กำลังก่อสร้าง', INSPECTION:'ตรวจสอบ', SEA_TRIAL:'ทดสอบทางทะเล', COMPLETED:'เสร็จสิ้น', ON_HOLD:'พักโครงการ'};
+const STATUS_COLOR = {PLANNING:'var(--steel)', DESIGN:'var(--cyan)', CONSTRUCTION:'var(--amber)', INSPECTION:'var(--purple)', SEA_TRIAL:'var(--teal)', COMPLETED:'var(--green)', ON_HOLD:'var(--red)'};
+let appView = 'home';
+let currentProjectId = null;
+let projectsCache = [];
+let pdCurrentProject = null;
+
+const LIGHT_VIEWS = ['dashboard','projects','project-detail','shipyards'];
+function goApp(view){
+  appView = view;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+view).classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(n=> n.classList.toggle('active', n.dataset.nav===view));
+  document.getElementById('stepper').style.display='none';
+  document.getElementById('hudMini').style.display='none';
+  document.body.classList.toggle('light-mode', LIGHT_VIEWS.includes(view));
+  updateProjectContextBar();
+  window.scrollTo({top:0, behavior:'smooth'});
+  if(view==='dashboard') loadDashboard();
+  if(view==='projects') loadProjectsList();
+  if(view==='shipyards') loadShipyardsScreen();
+}
+function updateProjectContextBar(){
+  const bar = document.getElementById('projectContextBar');
+  const inWizard = appView==='wizard';
+  if(currentProjectId && inWizard){
+    const p = projectsCache.find(x=>x.id===currentProjectId);
+    bar.classList.add('show');
+    bar.innerHTML = `📁 โครงการ: <b>${p?p.project_name:('#'+currentProjectId)}</b> &nbsp; <span class="pcb-link" onclick="backToProject()">← กลับไปโครงการ</span>`;
+  } else {
+    bar.classList.remove('show');
+  }
+}
+function backToProject(){ if(currentProjectId) openProjectDetail(currentProjectId); }
+
+function statusBadge(status){
+  const c = STATUS_COLOR[status] || 'var(--steel)';
+  return `<span class="status-badge" style="color:${c}; border-color:${c};">${STATUS_TH[status]||status}</span>`;
+}
+function projRowHTML(p){
+  return `<div class="proj-row" onclick="openProjectDetail(${p.id})" style="cursor:pointer;">
+    <div class="mono" style="color:var(--steel);">${p.project_code}</div>
+    <div>${p.project_name}</div>
+    <div class="mono" style="color:var(--steel);">${p.ship_name||'ยังไม่มีแบบเรือ'}</div>
+    <div>${p.client_name||'—'}</div>
+    <div>${statusBadge(p.status)}</div>
+    <div class="progress-bar-outer"><div class="progress-bar-inner" style="width:${p.progress}%;"></div></div>
+    <div class="mono" style="color:var(--steel); font-size:10px;">${p.target_date||'—'}</div>
+  </div>`;
+}
+
+async function loadDashboard(){
+  if(!authToken){ document.getElementById('dashCards').innerHTML=''; document.getElementById('dashRecentProjects').innerHTML='<div class="ts" style="color:var(--steel);">กรุณาเข้าสู่ระบบ</div>'; return; }
+  try{ projectsCache = await apiFetch('/projects'); } catch(e){ projectsCache = []; }
+  const total = projectsCache.length;
+  const prep = projectsCache.filter(p=>['PLANNING','DESIGN'].includes(p.status)).length;
+  const constr = projectsCache.filter(p=>p.status==='CONSTRUCTION').length;
+  const testing = projectsCache.filter(p=>['INSPECTION','SEA_TRIAL'].includes(p.status)).length;
+  const done = projectsCache.filter(p=>p.status==='COMPLETED').length;
+  document.getElementById('dashCards').innerHTML = [
+    ['โครงการทั้งหมด', total],
+    ['เตรียมการ / ออกแบบ', prep],
+    ['กำลังก่อสร้าง', constr],
+    ['อยู่ระหว่างทดสอบ', testing],
+    ['เสร็จสิ้น', done],
+  ].map(([lbl,val])=>`<div class="dash-card"><div class="lbl">${lbl}</div><div class="val">${val}</div></div>`).join('');
+
+  const recent = [...projectsCache].sort((a,b)=> new Date(b.updated_at)-new Date(a.updated_at)).slice(0,5);
+  const box = document.getElementById('dashRecentProjects');
+  box.innerHTML = recent.length ? recent.map(projRowHTML).join('') : '<div class="ts" style="color:var(--steel);">ไม่มีข้อมูล — ยังไม่มีโครงการ</div>';
+}
+
+async function loadProjectsList(){
+  const box = document.getElementById('projectsList');
+  box.innerHTML = 'กำลังโหลด...';
+  try{
+    projectsCache = await apiFetch('/projects');
+    box.innerHTML = projectsCache.length ? projectsCache.map(projRowHTML).join('') : '<div class="ts" style="color:var(--steel);">ไม่มีข้อมูล — ยังไม่มีโครงการ</div>';
+  }catch(e){ box.innerHTML = 'ไม่สามารถโหลดข้อมูลโครงการได้: '+e.message; }
+}
+
+async function openCreateProjectModal(){
+  if(!authToken){ openAuthModal(); return; }
+  document.getElementById('cpErr').style.display='none';
+  document.getElementById('cpName').value='';
+  document.getElementById('cpClient').value='';
+  document.getElementById('cpTarget').value='';
+  const sel = document.getElementById('cpShip');
+  sel.innerHTML = '<option>กำลังโหลด...</option>';
+  document.getElementById('createProjectModal').classList.add('show');
+  try{
+    const ships = await apiFetch('/ships');
+    const noShipOpt = '<option value="">— ยังไม่มีแบบเรือ (วางแผนก่อน) —</option>';
+    sel.innerHTML = noShipOpt + (ships.length ? ships.map(s=>`<option value="${s.id}">${s.name} (${s.ship_type})</option>`).join('') : '');
+  }catch(e){ sel.innerHTML = '<option value="">— ยังไม่มีแบบเรือ (วางแผนก่อน) —</option>'; }
+}
+function closeCreateProjectModal(){ document.getElementById('createProjectModal').classList.remove('show'); }
+async function submitCreateProject(){
+  const shipId = document.getElementById('cpShip').value;
+  const name = document.getElementById('cpName').value.trim();
+  const client = document.getElementById('cpClient').value.trim();
+  const target = document.getElementById('cpTarget').value;
+  const err = document.getElementById('cpErr');
+  if(!name){ err.textContent='กรุณากรอกชื่อโครงการ'; err.style.display='block'; return; }
+  try{
+    const payload = {ship_id: shipId?parseInt(shipId):null, project_name:name, client_name:client||null, target_date: target||null};
+    const proj = await apiFetch('/projects',{method:'POST', body:JSON.stringify(payload)});
+    closeCreateProjectModal();
+    openProjectDetail(proj.id);
+  }catch(e){ err.textContent = 'ไม่สามารถสร้างโครงการได้: '+e.message; err.style.display='block'; }
+}
+
+async function openProjectDetail(id){
+  currentProjectId = id;
+  goApp('project-detail');
+  document.getElementById('pdTitle').textContent = 'กำลังโหลด...';
+  document.getElementById('pdSubtitle').textContent = '';
+  try{
+    pdCurrentProject = await apiFetch('/projects/'+id);
+    document.getElementById('pdTitle').textContent = pdCurrentProject.project_name;
+    const shipInfo = pdCurrentProject.ship_id ? `เรือ: ${pdCurrentProject.ship_name} (${pdCurrentProject.ship_type})` : 'ยังไม่มีแบบเรือ — อยู่ในขั้นวางแผน';
+    document.getElementById('pdSubtitle').innerHTML = `${pdCurrentProject.project_code} · ${shipInfo} · ${statusBadge(pdCurrentProject.status)}`;
+    document.getElementById('pdSummaryCards').innerHTML = `
+      <div class="sum-card"><div class="lbl">รหัสโครงการ</div><div class="val">${pdCurrentProject.project_code}</div></div>
+      <div class="sum-card"><div class="lbl">ความคืบหน้า</div><div class="val">${pdCurrentProject.progress}%</div></div>
+      <div class="sum-card"><div class="lbl">วันที่เริ่ม</div><div class="val" style="font-size:14px;">${pdCurrentProject.start_date||'—'}</div></div>
+      <div class="sum-card"><div class="lbl">กำหนดส่ง</div><div class="val" style="font-size:14px;">${pdCurrentProject.target_date||'—'}</div></div>
+    `;
+    document.getElementById('pdFormName').value = pdCurrentProject.project_name;
+    document.getElementById('pdFormClient').value = pdCurrentProject.client_name||'';
+    document.getElementById('pdFormStatus').innerHTML = Object.keys(STATUS_TH).map(k=>`<option value="${k}" ${k===pdCurrentProject.status?'selected':''}>${STATUS_TH[k]}</option>`).join('');
+    document.getElementById('pdFormProgress').value = pdCurrentProject.progress;
+    document.getElementById('pdFormStart').value = pdCurrentProject.start_date||'';
+    document.getElementById('pdFormTarget').value = pdCurrentProject.target_date||'';
+
+    const vtSel = document.getElementById('reqVesselType');
+    vtSel.innerHTML = '<option value="">— เลือกประเภทเรือ —</option>' + SHIP_TYPES.map(t=>`<option value="${t.key}">${t.label}</option>`).join('');
+    const req = pdCurrentProject.requirements || {};
+    vtSel.value = pdCurrentProject.vessel_type || req.vessel_type || '';
+    document.getElementById('reqIntendedUse').value = pdCurrentProject.intended_use || req.intended_use || '';
+    document.getElementById('reqOperatingArea').value = pdCurrentProject.operating_area || req.operating_area || '';
+    document.getElementById('reqPassengers').value = req.passenger_capacity ?? '';
+    document.getElementById('reqCargoTons').value = req.cargo_capacity_tons ?? '';
+    document.getElementById('reqSpeed').value = req.desired_speed_knots ?? '';
+    document.getElementById('reqCrew').value = req.crew_size ?? '';
+    document.getElementById('reqNotes').value = req.notes || '';
+    document.getElementById('reqBudgetMin').value = pdCurrentProject.budget_min ?? '';
+    document.getElementById('reqBudgetMax').value = pdCurrentProject.budget_max ?? '';
+    document.getElementById('reqDuration').value = pdCurrentProject.estimated_duration ?? '';
+
+    switchPdTab('overview');
+    loadPdTrialHistory();
+  }catch(e){
+    document.getElementById('pdTitle').textContent = 'ไม่พบโครงการ';
+    document.getElementById('pdSubtitle').textContent = e.message;
+  }
+}
+function switchPdTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
+  document.querySelectorAll('.tab-panel').forEach(p=> p.classList.toggle('active', p.id==='pdTab-'+tab));
+  if(tab==='recommend') loadPdRecommendations();
+  if(tab==='materials') loadPdMaterialsTab();
+  if(tab==='shipyards') loadPdShipyardShortlist();
+}
+async function savePdRequirements(){
+  if(!pdCurrentProject) return;
+  const num = (id)=>{ const v=document.getElementById(id).value; return v===''?null:parseFloat(v); };
+  const payload = {
+    vessel_type: document.getElementById('reqVesselType').value || null,
+    intended_use: document.getElementById('reqIntendedUse').value.trim() || null,
+    operating_area: document.getElementById('reqOperatingArea').value.trim() || null,
+    budget_min: num('reqBudgetMin'),
+    budget_max: num('reqBudgetMax'),
+    estimated_duration: document.getElementById('reqDuration').value ? parseInt(document.getElementById('reqDuration').value) : null,
+    requirements: {
+      vessel_type: document.getElementById('reqVesselType').value || null,
+      intended_use: document.getElementById('reqIntendedUse').value.trim() || null,
+      operating_area: document.getElementById('reqOperatingArea').value.trim() || null,
+      passenger_capacity: document.getElementById('reqPassengers').value ? parseInt(document.getElementById('reqPassengers').value) : null,
+      cargo_capacity_tons: num('reqCargoTons'),
+      desired_speed_knots: num('reqSpeed'),
+      crew_size: document.getElementById('reqCrew').value ? parseInt(document.getElementById('reqCrew').value) : null,
+      notes: document.getElementById('reqNotes').value.trim() || null,
+      budget_min: num('reqBudgetMin'),
+      budget_max: num('reqBudgetMax'),
+      estimated_duration: document.getElementById('reqDuration').value ? parseInt(document.getElementById('reqDuration').value) : null,
+    },
+  };
+  try{
+    pdCurrentProject = await apiFetch('/projects/'+pdCurrentProject.id, {method:'PUT', body:JSON.stringify(payload)});
+    alert('บันทึกความต้องการเรียบร้อย — ไปที่แท็บ "ข้อเสนอการออกแบบ" เพื่อสร้างข้อเสนอได้เลย');
+  }catch(e){ alert('ไม่สามารถบันทึกความต้องการได้: '+e.message); }
+}
+function costBreakdownTableHTML(rows){
+  if(!rows || !rows.length) return '<div class="ts" style="color:var(--steel);">ยังไม่มีข้อมูล</div>';
+  return `<table style="width:100%; border-collapse:collapse; font-size:13px;">
+    <thead><tr style="text-align:left; color:var(--steel); font-size:11px; font-family:'IBM Plex Mono',monospace;">
+      <th style="padding:6px 8px; border-bottom:1px solid var(--line);">หมวดต้นทุน</th>
+      <th style="padding:6px 8px; border-bottom:1px solid var(--line); text-align:right;">ประมาณการ (บาท)</th>
+    </tr></thead>
+    <tbody>${rows.map(r=>`<tr>
+      <td style="padding:6px 8px; border-bottom:1px solid var(--line);">${r.label}</td>
+      <td style="padding:6px 8px; border-bottom:1px solid var(--line); text-align:right;">${Math.round(r.cost_min).toLocaleString()} – ${Math.round(r.cost_max).toLocaleString()}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+function timelinePhasesHTML(rows){
+  if(!rows || !rows.length) return '<div class="ts" style="color:var(--steel);">ยังไม่มีข้อมูล</div>';
+  return `<ol style="margin:6px 0 0; padding-left:20px; font-size:13px; line-height:1.9;">
+    ${rows.map(r=>`<li><b>${r.label}</b> — ${r.months_min}–${r.months_max} เดือน</li>`).join('')}
+  </ol>`;
+}
+function renderOptionCard(o){
+  const costTxt = (o.estimated_cost_min!=null && o.estimated_cost_max!=null)
+    ? `${Math.round(o.estimated_cost_min).toLocaleString()} – ${Math.round(o.estimated_cost_max).toLocaleString()} บาท` : '—';
+  return `<div class="panel-box" style="margin-bottom:14px;">
+    <div class="panel-title">${o.label}</div>
+    <div class="dash-cards" style="grid-template-columns:repeat(4,1fr); margin-top:8px;">
+      <div class="sum-card"><div class="lbl">ขนาด (ยาว×กว้าง×กินน้ำลึก)</div><div class="val" style="font-size:14px;">${o.length_m}×${o.beam_m}×${o.draft_m} ม.</div></div>
+      <div class="sum-card"><div class="lbl">วัสดุแนะนำ</div><div class="val" style="font-size:14px;">${o.material_key}</div></div>
+      <div class="sum-card"><div class="lbl">ต้นทุนประเมิน</div><div class="val" style="font-size:13px;">${costTxt}</div></div>
+      <div class="sum-card"><div class="lbl">ระยะเวลาก่อสร้างโดยประมาณ</div><div class="val" style="font-size:14px;">${o.estimated_duration_months} เดือน</div></div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:12px;">
+      <div><div class="lbl" style="color:var(--green); font-family:'IBM Plex Mono',monospace; font-size:10px;">ข้อดี</div>
+        <ul style="margin:6px 0 0; padding-left:18px; font-size:13px; line-height:1.7;">${(o.pros||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
+      <div><div class="lbl" style="color:var(--red); font-family:'IBM Plex Mono',monospace; font-size:10px;">ข้อควรพิจารณา</div>
+        <ul style="margin:6px 0 0; padding-left:18px; font-size:13px; line-height:1.7;">${(o.cons||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
+    </div>
+    <p class="ts" style="color:var(--steel); margin-top:10px;">${o.rationale||''}</p>
+    <details style="margin-top:12px;"><summary style="cursor:pointer; color:var(--cyan); font-size:12.5px;">ดูรายละเอียดต้นทุนแยกหมวด (§13)</summary>
+      <div style="margin-top:8px;">${costBreakdownTableHTML(o.cost_breakdown)}</div>
+    </details>
+    <details style="margin-top:8px;"><summary style="cursor:pointer; color:var(--cyan); font-size:12.5px;">ดูลำดับขั้นตอนการก่อสร้างโดยประมาณ (§14)</summary>
+      <div style="margin-top:8px;">${timelinePhasesHTML(o.timeline_phases)}</div>
+    </details>
+  </div>`;
+}
+async function loadPdRecommendations(){
+  if(!pdCurrentProject) return;
+  const box = document.getElementById('pdRecommendList');
+  box.innerHTML = 'กำลังโหลด...';
+  try{
+    const rows = await apiFetch('/projects/'+pdCurrentProject.id+'/recommendations');
+    box.innerHTML = rows.length ? rows.map(renderOptionCard).join('') : '<div class="ts" style="color:var(--steel);">ยังไม่มีข้อเสนอการออกแบบ — กรอกข้อมูลในแท็บ "ความต้องการ" แล้วกดปุ่ม "สร้างข้อเสนอการออกแบบ" ด้านบน</div>';
+  }catch(e){ box.innerHTML = 'ไม่สามารถโหลดข้อมูลได้: '+e.message; }
+}
+async function generatePdRecommendations(){
+  if(!pdCurrentProject) return;
+  const box = document.getElementById('pdRecommendList');
+  box.innerHTML = 'กำลังประมวลผล...';
+  try{
+    const rows = await apiFetch('/projects/'+pdCurrentProject.id+'/recommendations', {method:'POST'});
+    box.innerHTML = rows.map(renderOptionCard).join('');
+  }catch(e){ box.innerHTML = 'ไม่สามารถสร้างข้อเสนอได้: '+e.message; }
+}
+async function loadPdMaterialsTab(){
+  if(!pdCurrentProject) return;
+  const infoBox = document.getElementById('pdMaterialInfo');
+  const costBox = document.getElementById('pdCostBreakdown');
+  infoBox.innerHTML = 'กำลังโหลด...';
+  costBox.innerHTML = 'กำลังโหลด...';
+  try{
+    const materials = await apiFetch('/materials/info');
+    infoBox.innerHTML = `<div class="dash-cards" style="grid-template-columns:repeat(2,1fr); gap:12px;">${materials.map(m=>`
+      <div class="panel-box">
+        <div class="panel-title">${m.label}</div>
+        <div style="font-size:12.5px; line-height:1.9; margin-top:6px;">
+          <div><b style="color:var(--amber);">ต้นทุน:</b> ${m.cost}</div>
+          <div><b style="color:var(--amber);">น้ำหนัก:</b> ${m.weight}</div>
+          <div><b style="color:var(--amber);">การกัดกร่อน:</b> ${m.corrosion}</div>
+          <div><b style="color:var(--amber);">การบำรุงรักษา:</b> ${m.maintenance}</div>
+          <div><b style="color:var(--amber);">ความทนทาน:</b> ${m.durability}</div>
+          <div><b style="color:var(--amber);">การขึ้นรูป/หาช่าง:</b> ${m.fabrication}</div>
+        </div>
+      </div>`).join('')}</div>`;
+  }catch(e){ infoBox.innerHTML = 'ไม่สามารถโหลดข้อมูลได้: '+e.message; }
+  try{
+    const recs = await apiFetch('/projects/'+pdCurrentProject.id+'/recommendations');
+    if(!recs.length){ costBox.innerHTML = '<div class="ts" style="color:var(--steel);">ยังไม่มีข้อเสนอการออกแบบ — ไปที่แท็บ "แบบเรือและข้อเสนอ" ก่อน</div>'; return; }
+    costBox.innerHTML = recs.map(o=>`<div class="panel-box" style="margin-bottom:12px;">
+      <div class="panel-title">${o.label} (วัสดุ: ${o.material_key})</div>
+      <div style="margin-top:8px;">${costBreakdownTableHTML(o.cost_breakdown)}</div>
+    </div>`).join('');
+  }catch(e){ costBox.innerHTML = 'ไม่สามารถโหลดข้อมูลได้: '+e.message; }
+}
+
+function shipyardCardHTML(s, opts){
+  opts = opts || {};
+  const badge = s.verified ? `<span class="status-badge" style="color:var(--green); border-color:var(--green);">ตรวจสอบแล้ว</span>` : `<span class="status-badge" style="color:var(--amber); border-color:var(--amber);">ข้อมูลตัวอย่าง</span>`;
+  const reasons = (s.match_reasons||[]).length ? `<div class="ts" style="color:var(--teal); margin-top:6px;">เหตุผลที่แนะนำ: ${s.match_reasons.join(' · ')}</div>` : '';
+  const sizeTxt = (s.min_length_m!=null && s.max_length_m!=null) ? `${s.min_length_m}–${s.max_length_m} ม.` : '—';
+  const budgetTxt = (s.budget_min!=null && s.budget_max!=null) ? `${Math.round(s.budget_min).toLocaleString()} – ${Math.round(s.budget_max).toLocaleString()} บาท` : '—';
+  const addBtn = opts.showAdd ? `<button class="btn primary" style="margin-top:10px;" onclick="addShipyardToProject(${s.id})">+ เพิ่มเข้าโครงการนี้</button>` : '';
+  const removeBtn = opts.shortlistId ? `<button class="btn danger" style="margin-top:10px;" onclick="removeShipyardFromProject(${opts.shortlistId})">ลบออกจากโครงการ</button>` : '';
+  return `<div class="panel-box" style="margin-bottom:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div class="panel-title">${s.name}</div>${badge}
+    </div>
+    <div style="font-size:12.5px; line-height:1.8; margin-top:6px;">
+      <div>📍 ${s.location||'—'}</div>
+      <div>ประเภทเรือที่รองรับ: ${(s.vessel_types||[]).join(', ')||'—'}</div>
+      <div>วัสดุที่รองรับ: ${(s.material_keys||[]).join(', ')||'—'}</div>
+      <div>ขนาดความยาวที่รองรับ: ${sizeTxt}</div>
+      <div>ช่วงงบประมาณที่เคยรับงาน: ${budgetTxt}</div>
+      <div>ติดต่อ: ${s.contact||'—'}</div>
+    </div>
+    ${reasons}
+    ${s.notes?`<div class="ts" style="color:var(--steel); margin-top:6px;">${s.notes}</div>`:''}
+    ${addBtn}${removeBtn}
+  </div>`;
+}
+async function loadShipyardsScreen(){
+  const sel = document.getElementById('syFilterType');
+  if(!sel.dataset.filled){
+    sel.innerHTML = '<option value="">— ทั้งหมด —</option>' + SHIP_TYPES.map(t=>`<option value="${t.key}">${t.label}</option>`).join('');
+    sel.dataset.filled = '1';
+  }
+  const box = document.getElementById('shipyardsList');
+  box.innerHTML = 'กำลังโหลด...';
+  try{
+    const vt = sel.value;
+    const qs = vt ? ('?vessel_type='+encodeURIComponent(vt)) : '';
+    const rows = await apiFetch('/shipyards'+qs);
+    box.innerHTML = rows.length ? rows.map(s=>shipyardCardHTML(s,{showAdd: !!currentProjectId})).join('') : '<div class="ts" style="color:var(--steel);">ไม่พบอู่ต่อเรือที่ตรงกับเงื่อนไข</div>';
+  }catch(e){ box.innerHTML = 'ไม่สามารถโหลดข้อมูลได้: '+e.message; }
+}
+async function addShipyardToProject(shipyardId){
+  if(!currentProjectId){ alert('กรุณาเปิดโครงการก่อนเพิ่มอู่ต่อเรือ'); return; }
+  try{
+    await apiFetch('/projects/'+currentProjectId+'/shipyards', {method:'POST', body:JSON.stringify({shipyard_id:shipyardId})});
+    alert('เพิ่มอู่ต่อเรือเข้าโครงการแล้ว');
+  }catch(e){ alert('ไม่สามารถเพิ่มได้: '+e.message); }
+}
+async function loadPdShipyardShortlist(){
+  if(!pdCurrentProject) return;
+  const box = document.getElementById('pdShipyardShortlist');
+  box.innerHTML = 'กำลังโหลด...';
+  try{
+    const rows = await apiFetch('/projects/'+pdCurrentProject.id+'/shipyards');
+    box.innerHTML = rows.length ? rows.map(r=>shipyardCardHTML(r.shipyard,{shortlistId:r.id})).join('') : '<div class="ts" style="color:var(--steel);">ยังไม่มีอู่ต่อเรือที่บันทึกไว้สำหรับโครงการนี้</div>';
+  }catch(e){ box.innerHTML = 'ไม่สามารถโหลดข้อมูลได้: '+e.message; }
+}
+async function removeShipyardFromProject(shortlistId){
+  if(!pdCurrentProject) return;
+  try{
+    await apiFetch('/projects/'+pdCurrentProject.id+'/shipyards/'+shortlistId, {method:'DELETE'});
+    loadPdShipyardShortlist();
+  }catch(e){ alert('ไม่สามารถลบได้: '+e.message); }
+}
+async function saveProjectDetail(){
+  if(!pdCurrentProject) return;
+  try{
+    const payload = {
+      project_name: document.getElementById('pdFormName').value.trim(),
+      client_name: document.getElementById('pdFormClient').value.trim()||null,
+      status: document.getElementById('pdFormStatus').value,
+      progress: parseInt(document.getElementById('pdFormProgress').value)||0,
+      start_date: document.getElementById('pdFormStart').value||null,
+      target_date: document.getElementById('pdFormTarget').value||null,
+    };
+    pdCurrentProject = await apiFetch('/projects/'+pdCurrentProject.id, {method:'PUT', body:JSON.stringify(payload)});
+    openProjectDetail(pdCurrentProject.id);
+  }catch(e){ alert('ไม่สามารถบันทึกข้อมูลได้: '+e.message); }
+}
+async function deleteCurrentProject(){
+  if(!pdCurrentProject) return;
+  if(!confirm('ลบโครงการนี้? การกระทำนี้ไม่สามารถย้อนกลับได้ (ตัวเรือจะไม่ถูกลบ)')) return;
+  try{
+    await apiFetch('/projects/'+pdCurrentProject.id, {method:'DELETE'});
+    currentProjectId = null;
+    goApp('projects');
+  }catch(e){ alert('ไม่สามารถลบโครงการได้: '+e.message); }
+}
+async function loadPdTrialHistory(){
+  const box = document.getElementById('pdTrialHistory');
+  if(!pdCurrentProject) return;
+  if(!pdCurrentProject.ship_id){ box.innerHTML = '<div class="ts" style="color:var(--steel);">ยังไม่มีแบบเรือผูกกับโครงการนี้ — ไปที่แท็บ "เครื่องมือออกแบบเบื้องต้น (2D)" ก่อน</div>'; return; }
+  box.innerHTML = 'กำลังโหลด...';
+  try{
+    const trials = await apiFetch('/ships/'+pdCurrentProject.ship_id+'/trials');
+    box.innerHTML = trials.length ? trials.map(t=>`
+      <div class="check-row">
+        <div class="lbl">${new Date(t.created_at).toLocaleString('th-TH')}</div>
+        <div class="val mono">เกรด ${t.grade} · ${t.distance} nm · Hull ${t.hull_condition}%</div>
+      </div>`).join('') : '<div class="ts" style="color:var(--steel);">ไม่มีข้อมูล — ยังไม่มีประวัติการทดสอบทางทะเล</div>';
+  }catch(e){ box.innerHTML = 'ไม่สามารถโหลดข้อมูลได้: '+e.message; }
+}
+
+async function loadProjectShipIntoBuilder(){
+  if(!pdCurrentProject) return false;
+  if(!pdCurrentProject.ship_id){
+    // No ship yet — start a fresh design that, once saved, will attach to this project.
+    state = {stage:'mission', shipType:null, material:'steel', parts:[], shipName:'', safetyScore:0, approved:false, checks:{}, serverId:null};
+    return true;
+  }
+  try{
+    const ship = await apiFetch('/ships/'+pdCurrentProject.ship_id);
+    state.shipType = ship.ship_type;
+    state.material = ship.material_key;
+    state.shipName = ship.name;
+    state.serverId = ship.id;
+    state.parts = ship.parts.map(p=>({id:idCounter++, type:p.part_key, x:p.x, y:p.y}));
+    return true;
+  }catch(e){ alert('ไม่สามารถโหลดเรือของโครงการนี้ได้: '+e.message); return false; }
+}
+async function openDesignForProject(){
+  if(await loadProjectShipIntoBuilder()) goTo(pdCurrentProject.ship_id?'builder':'mission');
+}
+async function openInspectForProject(){
+  if(!pdCurrentProject.ship_id){ alert('ยังไม่มีแบบเรือสำหรับโครงการนี้ — ไปออกแบบในแท็บ "เครื่องมือออกแบบเบื้องต้น (2D)" ก่อน'); return; }
+  if(await loadProjectShipIntoBuilder()) goTo('inspection');
+}
+function startNewShipFlow(){
+  currentProjectId = null;
+  state.serverId = null;
+  goTo('mission');
+}
+
+/* ================= AUTH / API ================= */
+async function apiFetch(path, opts={}){
+  opts.headers = opts.headers || {};
+  opts.headers['Content-Type']='application/json';
+  if(authToken) opts.headers['Authorization']='Bearer '+authToken;
+  const res = await fetch(API_BASE+path, opts);
+  if(!res.ok){ const err = await res.json().catch(()=>({detail:res.statusText})); throw new Error(err.detail||'Request failed'); }
+  return res.status===204 ? null : res.json();
+}
+function renderAuthArea(){
+  const el = document.getElementById('authArea');
+  const nav = document.getElementById('mainNav');
+  if(currentUser){
+    el.innerHTML = `<span class="mono" style="color:var(--steel);font-size:11px;margin-right:8px;">👤 ${currentUser.username}</span><button class="auth-btn" onclick="logout()">ออกจากระบบ</button>`;
+    nav.classList.add('show');
+  } else {
+    el.innerHTML = `<button class="auth-btn" onclick="openAuthModal()">เข้าสู่ระบบ / สมัครสมาชิก</button>`;
+    nav.classList.remove('show');
+  }
+}
+async function refreshMe(){
+  if(!authToken){ currentUser=null; renderAuthArea(); return; }
+  try{ currentUser = await apiFetch('/me'); } catch(e){ authToken=null; localStorage.removeItem('shipforge_token'); currentUser=null; }
+  renderAuthArea();
+  if(currentUser && appView==='home' && state.stage==='home'){ goApp('dashboard'); }
+}
+function openAuthModal(){
+  document.getElementById('authModal').classList.add('show');
+  document.getElementById('authErr').style.display='none';
+  clearAuthFieldErrs();
+}
+function closeAuthModal(){ document.getElementById('authModal').classList.remove('show'); }
+function switchAuthTab(tab){
+  document.getElementById('tabLogin').classList.toggle('active', tab==='login');
+  document.getElementById('tabRegister').classList.toggle('active', tab==='register');
+  document.getElementById('loginForm').style.display = tab==='login'?'block':'none';
+  document.getElementById('registerForm').style.display = tab==='register'?'block':'none';
+  document.getElementById('authHeading').textContent = tab==='login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก';
+  document.getElementById('authErr').style.display='none';
+  clearAuthFieldErrs();
+}
+function showAuthErr(msg){ const e=document.getElementById('authErr'); e.textContent=msg; e.style.display='block'; }
+function clearAuthFieldErrs(){
+  document.querySelectorAll('.field-err').forEach(e=>{ e.textContent=''; e.classList.remove('show'); });
+}
+function setFieldErr(id, msg){
+  const e = document.getElementById(id);
+  if(!e) return;
+  e.textContent = msg;
+  e.classList.add('show');
+}
+function togglePwVisibility(inputId, btn){
+  const input = document.getElementById(inputId);
+  const showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  btn.textContent = showing ? 'แสดง' : 'ซ่อน';
+}
+async function submitLogin(){
+  clearAuthFieldErrs();
+  document.getElementById('authErr').style.display='none';
+  const username=document.getElementById('loginUsername').value.trim();
+  const password=document.getElementById('loginPassword').value;
+  let hasErr = false;
+  if(!username){ setFieldErr('errLoginUsername','กรุณากรอกชื่อผู้ใช้'); hasErr = true; }
+  if(!password){ setFieldErr('errLoginPassword','กรุณากรอกรหัสผ่าน'); hasErr = true; }
+  if(hasErr) return;
+  const btn = document.getElementById('loginSubmitBtn');
+  const prevLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = 'กำลังเข้าสู่ระบบ...';
+  try{
+    const res = await fetch(API_BASE+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+    if(!res.ok) throw new Error('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+    const data = await res.json();
+    authToken = data.access_token;
+    localStorage.setItem('shipforge_token', authToken);
+    closeAuthModal();
+    await refreshMe();
+  }catch(e){ showAuthErr(e.message); }
+  finally{ btn.disabled = false; btn.textContent = prevLabel; }
+}
+async function submitRegister(){
+  clearAuthFieldErrs();
+  document.getElementById('authErr').style.display='none';
+  const username=document.getElementById('regUsername').value.trim();
+  const email=document.getElementById('regEmail').value.trim();
+  const password=document.getElementById('regPassword').value;
+  let hasErr = false;
+  if(!username){ setFieldErr('errRegUsername','กรุณากรอกชื่อผู้ใช้'); hasErr = true; }
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ setFieldErr('errRegEmail','กรุณากรอกอีเมลให้ถูกต้อง'); hasErr = true; }
+  if(!password || password.length < 8){ setFieldErr('errRegPassword','รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'); hasErr = true; }
+  if(hasErr) return;
+  const btn = document.getElementById('registerSubmitBtn');
+  const prevLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = 'กำลังสมัครสมาชิก...';
+  try{
+    const res = await fetch(API_BASE+'/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,email,password})});
+    if(!res.ok){ const d=await res.json().catch(()=>({})); throw new Error(d.detail||'สมัครสมาชิกไม่สำเร็จ'); }
+    document.getElementById('loginUsername').value=username;
+    switchAuthTab('login');
+    showAuthErr('สมัครสมาชิกสำเร็จ — เข้าสู่ระบบได้เลย');
+  }catch(e){ showAuthErr(e.message); }
+  finally{ btn.disabled = false; btn.textContent = prevLabel; }
+}
+function logout(){
+  authToken=null; localStorage.removeItem('shipforge_token'); currentUser=null; currentProjectId=null;
+  renderAuthArea();
+  appView='home';
+  goTo('home');
+}
+
+async function saveShipToAccount(){
+  if(!authToken){ openAuthModal(); return; }
+  if(state.parts.length===0){ alert('วางชิ้นส่วนบน Blueprint ก่อนบันทึก'); return; }
+  if(!state.shipType){ alert('เลือกประเภทเรือก่อน (หน้า Mission)'); return; }
+  try{
+    const payload = {
+      name: state.shipName || 'Unnamed Vessel',
+      ship_type: state.shipType,
+      material_key: state.material,
+      parts: state.parts.map(p=>({part_key:p.type, x:p.x, y:p.y}))
+    };
+    let ship;
+    if(state.serverId){
+      ship = await apiFetch('/ships/'+state.serverId, {method:'PUT', body:JSON.stringify(payload)});
+    } else {
+      ship = await apiFetch('/ships', {method:'POST', body:JSON.stringify(payload)});
+      state.serverId = ship.id;
+    }
+    // If this design was opened from a planning project that had no ship yet, attach it now.
+    if(currentProjectId && pdCurrentProject && pdCurrentProject.id===currentProjectId && !pdCurrentProject.ship_id){
+      try{
+        pdCurrentProject = await apiFetch('/projects/'+currentProjectId, {method:'PUT', body:JSON.stringify({ship_id:ship.id})});
+      }catch(e){ /* ship is saved either way; linking can be retried from the project page */ }
+    }
+    alert('บันทึกเรือ "'+ship.name+'" แล้ว');
+  }catch(e){ alert('บันทึกไม่สำเร็จ: '+e.message); }
+}
+async function openShipsModal(){
+  if(!authToken){ openAuthModal(); return; }
+  document.getElementById('shipsModal').classList.add('show');
+  const list = document.getElementById('shipsList');
+  list.innerHTML = 'กำลังโหลด...';
+  try{
+    const ships = await apiFetch('/ships');
+    if(ships.length===0){ list.innerHTML='<div class="ts" style="color:var(--steel);">ยังไม่มีเรือที่บันทึกไว้</div>'; return; }
+    list.innerHTML = ships.map(s=>`<div class="srow" onclick="loadShip(${s.id})"><span>${s.name}</span><span class="mono" style="color:var(--steel);">${s.ship_type}</span></div>`).join('');
+  }catch(e){ list.innerHTML = 'โหลดไม่สำเร็จ: '+e.message; }
+}
+function closeShipsModal(){ document.getElementById('shipsModal').classList.remove('show'); }
+async function loadShip(id){
+  try{
+    const ship = await apiFetch('/ships/'+id);
+    state.shipType = ship.ship_type;
+    state.material = ship.material_key;
+    state.shipName = ship.name;
+    state.serverId = ship.id;
+    state.parts = ship.parts.map(p=>({id:idCounter++, type:p.part_key, x:p.x, y:p.y}));
+    closeShipsModal();
+    goTo('builder');
+  }catch(e){ alert('โหลดเรือไม่สำเร็จ: '+e.message); }
+}
+async function verifyViaServer(){
+  const box = document.getElementById('serverVerifyResult');
+  if(!authToken){ box.innerHTML='<span style="color:var(--amber);">ต้อง Login ก่อนถึงจะ verify ผ่าน server ได้</span>'; return; }
+  if(!state.serverId){ box.innerHTML='<span style="color:var(--amber);">กด "Save to Account" ในหน้า Builder ก่อน</span>'; return; }
+  box.innerHTML = 'กำลังตรวจสอบกับ server...';
+  try{
+    const r = await apiFetch('/ships/'+state.serverId+'/inspect',{method:'POST'});
+    box.innerHTML = `<span style="color:${r.approved?'var(--green)':'var(--red)'};">Server safety score: ${r.safety_score}% — ${r.approved?'APPROVED':'NOT APPROVED'}</span>`;
+  }catch(e){ box.innerHTML = '<span style="color:var(--red);">Verify ไม่สำเร็จ (เช็คว่า backend รันอยู่ที่ '+API_BASE+' ไหม): '+e.message+'</span>'; }
+}
+
+/* ================= NAV / STEPPER ================= */
+function renderStepper(){
+  const el = document.getElementById('stepper');
+  const idx = STAGES.findIndex(s=>s.key===state.stage);
+  el.innerHTML = STAGES.map((s,i)=>{
+    const cls = i<idx ? 'done' : (i===idx ? 'active':'');
+    return `<div class="step ${cls}"><span class="n">${i<idx?'✓':i+1}</span>${s.label}</div>` + (i<STAGES.length-1?'<div class="step-sep"></div>':'');
+  }).join('');
+  const hud = document.getElementById('hudMini');
+  if(state.shipType){
+    const t = SHIP_TYPES.find(x=>x.key===state.shipType);
+    hud.innerHTML = `<span>TYPE: <b>${t?t.label:'-'}</b></span><span>MAT: <b>${matLabel(state.material)}</b></span>`;
+  } else { hud.innerHTML=''; }
+}
+function goTo(stageKey){
+  state.stage = stageKey;
+  appView = 'wizard';
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+stageKey).classList.add('active');
+  document.getElementById('stepper').style.display='';
+  document.getElementById('hudMini').style.display='';
+  document.body.classList.remove('light-mode');
+  document.querySelectorAll('.nav-link').forEach(n=> n.classList.remove('active'));
+  renderStepper();
+  updateProjectContextBar();
+  window.scrollTo({top:0, behavior:'smooth'});
+  if(stageKey==='mission') renderMission();
+  if(stageKey==='builder') renderBuilder();
+  if(stageKey==='inspection') resetInspectionView();
+  if(stageKey==='launch') renderLaunch();
+  if(stageKey==='trial') startTrial();
+}
+function toggleHowTo(){ document.getElementById('howtoPanel').classList.toggle('open'); }
+
+/* ================= MISSION ================= */
+function renderMission(){
+  const grid = document.getElementById('typeGrid');
+  grid.innerHTML = SHIP_TYPES.map(t=>`
+    <div class="type-card ${state.shipType===t.key?'selected':''}" onclick="selectShipType('${t.key}')">
+      <span class="icon">${t.icon}</span>
+      <h3>${t.label}</h3>
+      <p>${t.desc}</p>
+      <div class="focus-tags">${t.focus.map(f=>`<span class="focus-tag">${f}</span>`).join('')}</div>
+    </div>`).join('');
+  updateMissionBrief();
+}
+function selectShipType(key){
+  state.shipType = key;
+  document.getElementById('toBuilderBtn').disabled = false;
+  renderMission();
+}
+function updateMissionBrief(){
+  const box = document.getElementById('missionBrief');
+  if(!state.shipType){ box.classList.remove('show'); return; }
+  const t = SHIP_TYPES.find(x=>x.key===state.shipType);
+  box.classList.add('show');
+  box.innerHTML = `เลือกแล้ว: <b>${t.label}</b> — เป้าหมายระยะเดินทาง <b>${t.target} nm</b>. ควรให้ความสำคัญกับ ${t.focus.join(', ')} เป็นพิเศษระหว่างออกแบบ`;
+}
+
+/* ================= BUILDER ================= */
+function matLabel(key){ const m=MATERIALS.find(x=>x.key===key); return m?m.label:key; }
+
+function renderBuilder(){
+  const t = SHIP_TYPES.find(x=>x.key===state.shipType);
+  document.getElementById('builderMissionNote').textContent = t? `ภารกิจ: ${t.label} — เป้าหมายระยะทาง ${t.target} nm — เน้น ${t.focus.join(', ')}` : '';
+  document.getElementById('shipNameInput').value = state.shipName;
+  document.getElementById('shipNameInput').oninput = e=> state.shipName = e.target.value;
+
+  const palette = document.getElementById('partsPalette');
+  palette.innerHTML = Object.entries(PART_TYPES).map(([key,p])=>{
+    const meta = PART_META[key];
+    const color = ZONE_HEX[meta.zone];
+    return `
+    <div class="part-item" draggable="true" ondragstart="onDragStart(event,'${key}')">
+      <span class="ic">${p.icon}</span>
+      <div>
+        <div>${p.label}</div>
+        <small>${p.desc}</small>
+        <span class="zone-tag" style="background:${color}22; color:${color}; border:1px solid ${color}55;">${meta.zoneLabel}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const matBox = document.getElementById('materialSelect');
+  matBox.innerHTML = MATERIALS.map(m=>`
+    <div class="mat-opt ${state.material===m.key?'active':''}" onclick="setMaterial('${m.key}')">
+      <span>${m.label}</span><span class="tag">×${m.weightMult}w</span>
+    </div>`).join('');
+
+  renderZoneLegend();
+  renderGrid();
+  renderGauges();
+}
+function renderZoneLegend(){
+  const el = document.getElementById('zoneLegend');
+  el.innerHTML = Object.entries(ZONE_NAMES).map(([k,name])=>
+    `<div class="zitem"><span class="zdot" style="background:${ZONE_HEX[k]};"></span>${name}</div>`
+  ).join('');
+}
+function setMaterial(key){ state.material = key; renderBuilder(); }
+function onDragStart(ev, type){ ev.dataTransfer.setData('text/plain', type); }
+
+function renderGrid(){
+  const s = computeStats();
+  const grid = document.getElementById('blueprintGrid');
+  grid.innerHTML='';
+  for(let y=0;y<5;y++){
+    for(let x=0;x<10;x++){
+      const cell = document.createElement('div');
+      cell.className='cell';
+      cell.dataset.x=x; cell.dataset.y=y;
+      const zk = cellZone(x,y);
+      cell.style.background = ZONE_HEX[zk] + '15';
+      cell.ondragover = e=>{ e.preventDefault(); cell.classList.add('dragover'); };
+      cell.ondragleave = ()=> cell.classList.remove('dragover');
+      cell.ondrop = e=>{ e.preventDefault(); cell.classList.remove('dragover'); const type=e.dataTransfer.getData('text/plain'); placePart(type,x,y); };
+      const part = state.parts.find(p=>p.x===x&&p.y===y);
+      if(part){
+        const def = PART_TYPES[part.type];
+        const st = s.statuses[part.id] || {};
+        let badge = '✓';
+        if(st.zoneOk===false) badge='⚠';
+        else if(part.type==='engine' && st.connected===false) badge='⚠';
+        else if(st.supported===false) badge='💥';
+        cell.innerHTML = `<div class="placed"><span class="rm" onclick="removePart(${part.id})">✕</span><span class="pbadge">${badge}</span>${def.icon}<small>${def.label}</small></div>`;
+      }
+      grid.appendChild(cell);
+    }
+  }
+  document.getElementById('cellCount').textContent = `${state.parts.length}/50 CELLS`;
+}
+function placePart(type,x,y){
+  if(!PART_TYPES[type]) return;
+  if(state.parts.find(p=>p.x===x&&p.y===y)) return;
+  state.parts.push({id:idCounter++, type, x, y});
+  renderGrid();
+  renderGauges();
+}
+function removePart(id){
+  state.parts = state.parts.filter(p=>p.id!==id);
+  renderGrid();
+  renderGauges();
+}
+
+function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+
+function analyzeShip(){
+  const mat = MATERIALS.find(m=>m.key===state.material);
+  const statuses = {};
+  let weight=0, buoyancy=0, structural=0, stability=52, enginePower=0, fuelCapacity=0, cargoCapacity=0, safety=0, reliability=0;
+  let hullCount=0, engineCount=0;
+  const engines=[], fuelTanks=[], stabilizers=[], heavyParts=[];
+
+  state.parts.forEach(p=>{
+    const def = PART_TYPES[p.type];
+    const meta = PART_META[p.type];
+    const zoneOk = zoneMatches(meta.zone, p.x, p.y);
+    statuses[p.id] = {zoneOk};
+    const mult = zoneOk ? 1 : 0.55;
+
+    const w = def.baseWeight * mat.weightMult;
+    weight += w;
+    if(def.buoyancy){ buoyancy += def.buoyancy*mult; hullCount++; }
+    if(def.structural) structural += def.structural*mat.strengthMult*mult;
+    if(def.stability) stability += def.stability*mult;
+    if(def.enginePower){ enginePower += def.enginePower*mult; engineCount++; engines.push(p); }
+    if(def.fuelCapacity){ fuelCapacity += def.fuelCapacity*mult; fuelTanks.push(p); }
+    if(def.cargoCapacity) cargoCapacity += def.cargoCapacity*mult;
+    if(def.safety) safety += def.safety*mult;
+    if(def.reliability) reliability += def.reliability*mult;
+    if(p.type==='stabilizer') stabilizers.push(p);
+    if(meta.needsSupport) heavyParts.push(p);
+  });
+
+  let balancePenalty = 0;
+  if(state.parts.length){
+    const avgX = state.parts.reduce((s,p)=>s+p.x,0)/state.parts.length;
+    balancePenalty = Math.abs(avgX-4.5)/4.5*28;
+  }
+  stability = clamp(stability - balancePenalty, 0, 100);
+
+  let disconnectedEngines = 0;
+  engines.forEach(e=>{
+    const meta = PART_META.engine;
+    let minDist = Infinity;
+    fuelTanks.forEach(f=>{ const d=Math.abs(e.x-f.x)+Math.abs(e.y-f.y); if(d<minDist) minDist=d; });
+    const connected = fuelTanks.length>0 && minDist<=meta.maxDist;
+    statuses[e.id].connected = connected;
+    if(!connected) disconnectedEngines++;
+  });
+  if(engines.length>0 && disconnectedEngines>0){
+    enginePower *= (1 - 0.3*(disconnectedEngines/engines.length));
+  }
+
+  let unsupported = 0;
+  const SUPPORT_DIST = 4;
+  heavyParts.forEach(hp=>{
+    let supported = false;
+    stabilizers.forEach(s=>{ if(s.y===4){ const d=Math.abs(hp.x-s.x)+Math.abs(hp.y-s.y); if(d<=SUPPORT_DIST) supported=true; } });
+    statuses[hp.id].supported = supported;
+    if(!supported) unsupported++;
+  });
+
+  let wrongZoneCount = 0;
+  state.parts.forEach(p=>{ if(!statuses[p.id].zoneOk) wrongZoneCount++; });
+
+  const buoyancyScore = clamp(buoyancy - weight/22, 0, 100);
+  const structuralScore = clamp(structural, 0, 100);
+  const engineReliability = engineCount>0 ? clamp(48 + reliability + (engineCount>1?8:0), 0, 100) : 0;
+  const fuelAdequacy = clamp((fuelCapacity / Math.max(weight*0.55,1))*100, 0, 100);
+  const range = enginePower>0 ? Math.round((fuelCapacity/Math.max(weight,1)) * enginePower * 0.9) : 0;
+
+  const structuralStress = clamp(balancePenalty*0.8 + wrongZoneCount*8 + unsupported*12 + disconnectedEngines*10, 0, 100);
+  stability = clamp(stability - structuralStress*0.12, 0, 100);
+
+  return {
+    weight:Math.round(weight), buoyancy:Math.round(buoyancyScore), structural:Math.round(structuralScore),
+    stability:Math.round(stability), enginePower:Math.round(enginePower), fuelCapacity:Math.round(fuelCapacity),
+    cargoCapacity:Math.round(cargoCapacity), range,
+    engineReliability:Math.round(engineReliability), fuelAdequacy:Math.round(fuelAdequacy),
+    hullCount, engineCount, balancePenalty:Math.round(balancePenalty),
+    wrongZoneCount, unsupported, disconnectedEngines, structuralStress:Math.round(structuralStress),
+    statuses
+  };
+}
+function computeStats(){ return analyzeShip(); }
+
+function gaugeRow(label, val, max, unit, thresholds, invert){
+  const pct = clamp((val/max)*100,0,100);
+  let cls='';
+  if(thresholds){
+    if(invert){
+      if(val>thresholds[1]) cls='bad'; else if(val>thresholds[0]) cls='warn'; else cls='good';
+    } else {
+      if(val < thresholds[0]) cls='bad'; else if(val<thresholds[1]) cls='warn'; else cls='good';
+    }
+  }
+  return `<div class="gauge">
+    <div class="gauge-top"><span>${label}</span><b>${val}${unit||''}</b></div>
+    <div class="gauge-bar"><div class="gauge-fill ${cls}" style="width:${pct}%;"></div></div>
+  </div>`;
+}
+function renderGauges(){
+  const s = computeStats();
+  const box = document.getElementById('gaugesBox');
+  let html =
+    gaugeRow('Weight', s.weight, 2500, ' t') +
+    gaugeRow('Stability', s.stability, 100, '', [40,70]) +
+    gaugeRow('Buoyancy', s.buoyancy, 100, '', [40,70]) +
+    gaugeRow('Engine Power', s.enginePower, 400, ' kW', [80,200]) +
+    gaugeRow('Fuel Capacity', s.fuelCapacity, 2000, ' L') +
+    gaugeRow('Cargo Capacity', s.cargoCapacity, 1500, ' t') +
+    gaugeRow('Estimated Range', s.range, 700, ' nm', [150,350]) +
+    gaugeRow('Structural Stress', s.structuralStress, 100, '%', [25,55], true);
+
+  const issues = [];
+  if(s.wrongZoneCount>0) issues.push(`⚠ ${s.wrongZoneCount} ชิ้นวางผิดโซน`);
+  if(s.unsupported>0) issues.push(`💥 ${s.unsupported} ชิ้นหนักไม่มี Stabilizer รองรับ`);
+  if(s.disconnectedEngines>0) issues.push(`⚠ Engine ${s.disconnectedEngines} ตัวไกลจาก Fuel Tank`);
+  if(issues.length){
+    html += issues.map(i=>`<div class="issue-mini" style="color:var(--amber);">${i}</div>`).join('');
+  } else if(state.parts.length>0){
+    html += `<div class="issue-mini" style="color:var(--green);">✓ โครงสร้างไม่มีปัญหา</div>`;
+  }
+  box.innerHTML = html;
+}
+
+/* ================= INSPECTION ================= */
+function resetInspectionView(){
+  document.getElementById('inspectWrap').style.display='none';
+  document.getElementById('toLaunchBtn').disabled = true;
+}
+function runInspection(){
+  const s = computeStats();
+  const checks = [
+    {key:'structural', label:'Structural Integrity', val:s.structural, pass:s.structural>=45},
+    {key:'stability', label:'Stability', val:s.stability, pass:s.stability>=40},
+    {key:'buoyancy', label:'Buoyancy', val:s.buoyancy, pass:s.buoyancy>=40 && s.hullCount>0},
+    {key:'engine', label:'Engine Reliability', val:s.engineReliability, pass:s.engineCount>0 && s.engineReliability>=40},
+    {key:'fuel', label:'Fuel Capacity', val:s.fuelAdequacy, pass:s.fuelAdequacy>=35},
+    {key:'balance', label:'Weight Balance', val:100-s.balancePenalty, pass:s.balancePenalty<=16},
+    {key:'stress', label:'Structural Stress', val:100-s.structuralStress, pass:s.structuralStress<=45},
+  ];
+  const overall = Math.round(checks.reduce((sum,c)=>sum+c.val,0)/checks.length);
+  state.safetyScore = overall;
+  state.approved = checks.every(c=>c.pass) && overall>=55;
+  state.checks = {list:checks, s};
+
+  document.getElementById('inspectWrap').style.display='grid';
+  document.getElementById('checksList').innerHTML = checks.map(c=>`
+    <div class="check-row">
+      <div class="lbl">${c.label}</div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="val">${c.val}%</span>
+        <span class="status ${c.pass?'pass':'fail'}">${c.pass?'✓':'✕'}</span>
+      </div>
+    </div>`).join('');
+
+  const issues = [];
+  if(s.hullCount===0) issues.push('ไม่มี Hull บน Blueprint — เรือไม่สามารถลอยน้ำได้');
+  if(s.engineCount===0) issues.push('ไม่มี Engine — เรือไม่สามารถเดินทางได้');
+  checks.forEach(c=>{ if(!c.pass && c.key!=='buoyancy' && c.key!=='engine') issues.push(`${c.label} ต่ำเกินไป (${c.val}%) — ควรปรับปรุงก่อนปล่อยเรือ`); });
+  if(s.wrongZoneCount>0) issues.push(`มี ${s.wrongZoneCount} ชิ้นส่วนวางผิดโซน — ประสิทธิภาพลดลง`);
+  if(s.unsupported>0) issues.push(`มี ${s.unsupported} ชิ้นส่วนหนักไม่มี Stabilizer รองรับใกล้ๆ — เป็นจุดอ่อนโครงสร้าง`);
+  if(s.disconnectedEngines>0) issues.push(`Engine ${s.disconnectedEngines} ตัวอยู่ไกลจาก Fuel Tank เกินไป — เสีย fuel efficiency`);
+  document.getElementById('issueList').innerHTML = issues.map(i=>`<li>⚠ ${i}</li>`).join('');
+
+  document.getElementById('scoreNum').textContent = overall;
+  document.getElementById('scoreNum').style.color = overall>=70?'var(--green)': overall>=55?'var(--amber)':'var(--red)';
+  const badge = document.getElementById('approvalBadge');
+  if(state.approved){
+    badge.className='badge approved'; badge.textContent='✓ VESSEL APPROVED';
+    document.getElementById('toLaunchBtn').disabled=false;
+  } else {
+    badge.className='badge rejected'; badge.textContent='✕ NOT APPROVED';
+    document.getElementById('toLaunchBtn').disabled=true;
+  }
+  document.getElementById('serverVerifyResult').innerHTML='';
+}
+
+/* ================= LAUNCH ================= */
+function renderLaunch(){
+  const t = SHIP_TYPES.find(x=>x.key===state.shipType);
+  const name = state.shipName || 'UNNAMED VESSEL';
+  document.getElementById('launchSummary').innerHTML = `
+    <div class="sum-card"><div class="lbl">SHIP NAME</div><div class="val">${name}</div></div>
+    <div class="sum-card"><div class="lbl">TYPE</div><div class="val">${t.icon} ${t.label}</div></div>
+    <div class="sum-card"><div class="lbl">MATERIAL</div><div class="val">${matLabel(state.material)}</div></div>
+    <div class="sum-card"><div class="lbl">SAFETY SCORE</div><div class="val" style="color:${state.safetyScore>=70?'var(--green)':'var(--amber)'}">${state.safetyScore}%</div></div>
+  `;
+  document.getElementById('launchLog').innerHTML='';
+  document.getElementById('dockScene').classList.remove('launching');
+  document.getElementById('launchBtn').disabled=false;
+}
+function startLaunch(){
+  if(!confirm('ยืนยันการปล่อยเรือลงทะเล?')) return;
+  document.getElementById('launchBtn').disabled=true;
+  const steps = ['Final Inspection ✓ Confirmed','Release Dock Clamps...','Leaving Dry Dock...','Engine Start — Systems Nominal','Vessel Enters Water','Entering Open Sea'];
+  const log = document.getElementById('launchLog');
+  log.innerHTML='';
+  steps.forEach((s,i)=>{
+    setTimeout(()=>{
+      const ln = document.createElement('div');
+      ln.className='ln';
+      ln.innerHTML = `<b>[OK]</b> ${s}`;
+      log.appendChild(ln);
+      if(i===2) document.getElementById('dockScene').classList.add('launching');
+      if(i===steps.length-1){
+        setTimeout(()=>goTo('trial'), 900);
+      }
+    }, i*550);
+  });
+}
+
+/* ================= SEA TRIAL ================= */
+function buildMiniShipSVG(){
+  const w=120, h=50;
+  let inner = `<path d="M4,${h/2} C8,${h*0.15} ${w*0.25},4 ${w*0.4},4 L${w*0.85},4 C${w*0.95},4 ${w-4},${h*0.25} ${w-4},${h/2} C${w-4},${h*0.75} ${w*0.95},${h-4} ${w*0.85},${h-4} L${w*0.4},${h-4} C${w*0.25},${h-4} 8,${h*0.85} 4,${h/2} Z" fill="rgba(73,199,224,0.08)" stroke="#49C7E0" stroke-width="1.5"/>`;
+  state.parts.forEach(p=>{
+    const zk = cellZone(p.x,p.y);
+    const color = ZONE_HEX[zk] || '#8B96A1';
+    const px = 10 + (p.x/9)*(w-26);
+    const py = 6 + (p.y/4)*(h-16);
+    inner += `<rect x="${px.toFixed(1)}" y="${py.toFixed(1)}" width="9" height="8" rx="1.5" fill="${color}" opacity="0.92"/>`;
+  });
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${inner}</svg>`;
+}
+function setMiniShip(){
+  const svg = buildMiniShipSVG();
+  document.getElementById('boatHalfLeft').innerHTML = svg;
+  document.getElementById('boatHalfRight').innerHTML = svg;
+  const boatEl = document.getElementById('boatEl');
+  boatEl.classList.remove('broken','windy');
+  document.getElementById('boatBreakFlash').classList.remove('show');
+}
+function breakShip(){
+  document.getElementById('boatEl').classList.add('broken');
+  document.getElementById('boatBreakFlash').classList.add('show');
+}
+function spawnSmoke(){
+  const scene = document.getElementById('seaScene');
+  const boat = document.getElementById('boatEl');
+  const el = document.createElement('div');
+  el.className='smoke-puff';
+  el.textContent='💨';
+  el.style.left = boat.style.left || '8%';
+  scene.appendChild(el);
+  setTimeout(()=>el.remove(), 1500);
+}
+function playEventAnimation(ev){
+  const scene = document.getElementById('seaScene');
+  const rain = document.getElementById('rainOverlay');
+  const wind = document.getElementById('windOverlay');
+  const lightning = document.getElementById('lightningOverlay');
+  const boat = document.getElementById('boatEl');
+  if(['swell','monsoon','storm'].includes(ev.key)){
+    scene.classList.add('rough');
+    setTimeout(()=>scene.classList.remove('rough'), 1700);
+  }
+  if(['monsoon','storm'].includes(ev.key)){
+    rain.classList.add('show');
+    setTimeout(()=>rain.classList.remove('show'), 1700);
+  }
+  if(['wind','storm'].includes(ev.key)){
+    wind.classList.add('show');
+    boat.classList.add('windy');
+    setTimeout(()=>{ wind.classList.remove('show'); boat.classList.remove('windy'); }, 1500);
+  }
+  if(['storm','rain'].includes(ev.key)){
+    lightning.classList.add('flash');
+    setTimeout(()=>lightning.classList.remove('flash'), 600);
+  }
+  if(['overheat','engfail'].includes(ev.key)){
+    spawnSmoke();
+  }
+}
+
+function startTrial(){
+  const t = SHIP_TYPES.find(x=>x.key===state.shipType);
+  const s = computeStats();
+  trial = {
+    distance:0, target:t.target, fuel:s.fuelCapacity, fuelMax:s.fuelCapacity,
+    hull:100, stability:s.stability, baseSpeed: Math.max(4, (s.enginePower / Math.max(s.weight,1)) * 55),
+    speedMult:1, ticks:0, ended:false, eventsTotal:0, eventsSurvived:0, log:[], stress:s.structuralStress
+  };
+  document.getElementById('targetDistLbl').textContent = t.target + ' nm';
+  document.getElementById('trialBtnRow').style.display='none';
+  document.getElementById('eventLog').innerHTML='';
+  document.getElementById('boatEl').style.left='8%';
+  document.getElementById('seaScene').classList.remove('rough');
+  document.getElementById('rainOverlay').classList.remove('show');
+  document.getElementById('windOverlay').classList.remove('show');
+  setMiniShip();
+  clearInterval(trialTimer);
+  renderTrialUI();
+  trialTimer = setInterval(trialTick, 450);
+}
+function logEvent(text, cls){
+  const el = document.getElementById('eventLog');
+  const div = document.createElement('div');
+  div.className='en '+(cls||'');
+  div.textContent = text;
+  el.prepend(div);
+}
+function trialTick(){
+  if(!trial || trial.ended) return;
+  trial.ticks++;
+  const speed = trial.baseSpeed * trial.speedMult;
+  trial.distance += speed*0.12;
+  const consumption = (trial.baseSpeed*0.9 + 6);
+  trial.fuel = Math.max(0, trial.fuel - consumption);
+  trial.speedMult = Math.min(1, trial.speedMult + 0.08);
+
+  const pct = Math.min(92, 8 + (trial.distance/trial.target)*84);
+  document.getElementById('boatEl').style.left = pct+'%';
+
+  if(trial.ticks % 4 === 0 && Math.random() < 0.55){
+    triggerEvent();
+  }
+
+  if(!trial.ended){
+    if(trial.fuel<=0){ endTrial('fuel'); }
+    else if(trial.hull<=0){ endTrial('hull'); }
+    else if(trial.distance>=trial.target){ endTrial('arrived'); }
+  }
+
+  renderTrialUI();
+}
+function triggerEvent(){
+  const totalW = EVENTS.reduce((s,e)=>s+e.weight,0);
+  let r = Math.random()*totalW, ev=EVENTS[0];
+  for(const e of EVENTS){ if(r<e.weight){ ev=e; break;} r-=e.weight; }
+  trial.eventsTotal++;
+  playEventAnimation(ev);
+
+  const breakBase = WEATHER_BREAK_CHANCE[ev.key];
+  if(breakBase !== undefined){
+    const breakChance = (trial.stress/100) * breakBase;
+    if(Math.random() < breakChance){
+      trial.hull = 0;
+      logEvent(`💥 ${ev.label} — โครงสร้างเรือหักกลางลำ! (Structural Stress สูงเกินไป)`, 'bad');
+      breakShip();
+      endTrial('broken');
+      return;
+    }
+  }
+
+  const s = computeStats();
+  const mitig = 1 - (s.stability/100)*0.5 - (s.structural/100)*0.25;
+  const dmg = Math.max(1, ev.dmg * Math.max(mitig,0.25));
+  trial.hull = clamp(trial.hull - dmg, 0, 100);
+  trial.speedMult = ev.spd;
+  const survived = dmg < ev.dmg*0.6;
+  if(survived) trial.eventsSurvived++;
+
+  const flash = document.getElementById('eventFlash');
+  flash.classList.add('show');
+  setTimeout(()=>flash.classList.remove('show'), 220);
+
+  logEvent(`${ev.icon} ${ev.label} — Hull -${dmg.toFixed(1)}% ${survived?'(รับมือได้ดี)':'(เสียหายหนัก)'}`, dmg>10?'bad':'warn');
+}
+function renderTrialUI(){
+  if(!trial) return;
+  document.getElementById('trialStats').innerHTML = `
+    <div class="tstat"><div class="lbl">DISTANCE</div><div class="val">${trial.distance.toFixed(1)} nm</div></div>
+    <div class="tstat"><div class="lbl">SAILING TIME</div><div class="val">${trial.ticks} min</div></div>
+    <div class="tstat"><div class="lbl">SPEED</div><div class="val">${(trial.baseSpeed*trial.speedMult).toFixed(1)} kn</div></div>
+    <div class="tstat"><div class="lbl">FUEL</div><div class="val" style="color:${trial.fuel<trial.fuelMax*0.2?'var(--red)':'var(--steel-light)'}">${Math.round(trial.fuel)} L</div></div>
+    <div class="tstat"><div class="lbl">HULL CONDITION</div><div class="val" style="color:${trial.hull<35?'var(--red)':trial.hull<65?'var(--amber)':'var(--green)'}">${Math.round(trial.hull)}%</div></div>
+    <div class="tstat"><div class="lbl">STABILITY</div><div class="val">${Math.round(trial.stability)}%</div></div>
+  `;
+  document.getElementById('vesselStatus').innerHTML = `
+    <div class="status-line">ระยะทาง <b>${trial.distance.toFixed(1)} / ${trial.target} nm</b></div>
+    <div class="status-line">เชื้อเพลิงคงเหลือ <b>${Math.round((trial.fuel/trial.fuelMax)*100)}%</b></div>
+    <div class="status-line">สภาพตัวเรือ <b>${Math.round(trial.hull)}%</b></div>
+    <div class="status-line">Structural Stress <b>${trial.stress}%</b></div>
+    <div class="status-line">เหตุการณ์ที่พบ <b>${trial.eventsTotal}</b></div>
+  `;
+}
+function endTrial(reason){
+  trial.ended = true;
+  clearInterval(trialTimer);
+  const msgs = {fuel:'⛽ น้ำมันหมด — เรือหยุดกลางทะเล', hull:'💥 โครงสร้างเสียหายรุนแรง — ยุติการเดินเรือ', arrived:'🏁 เดินทางถึงเป้าหมายสำเร็จ!'};
+  if(msgs[reason]) logEvent(msgs[reason], reason==='arrived'?'good':'bad');
+  trial.endReason = reason;
+  document.getElementById('trialBtnRow').style.display='flex';
+
+  if(authToken && state.serverId){
+    const r = goToResultCompute();
+    apiFetch('/ships/'+state.serverId+'/sea-trial',{method:'POST', body:JSON.stringify({
+      distance: Math.round(trial.distance*10)/10,
+      sailing_time: trial.ticks,
+      fuel_efficiency: Math.round((trial.distance/Math.max(trial.fuelMax-trial.fuel,1))*100)/100,
+      safety_score: state.safetyScore,
+      hull_condition: Math.round(trial.hull),
+      grade: r.grade
+    })}).catch(()=>{});
+  }
+}
+
+/* ================= RESULT ================= */
+function goToResultCompute(){
+  const s = computeStats();
+  const reachedFrac = clamp(trial.distance/trial.target, 0, 1);
+  const hullFrac = trial.hull/100;
+  const safetyFrac = state.safetyScore/100;
+  const survivedRatio = trial.eventsTotal>0 ? trial.eventsSurvived/trial.eventsTotal : 1;
+  const score = reachedFrac*40 + hullFrac*25 + safetyFrac*15 + survivedRatio*20;
+  let grade='D', desc='UNSAFE — ต้องออกแบบใหม่';
+  if(score>=88){grade='S'; desc='EXCEPTIONAL — เกินความคาดหมาย';}
+  else if(score>=74){grade='A'; desc='EXCELLENT — ประสิทธิภาพดีเยี่ยม';}
+  else if(score>=58){grade='B'; desc='GOOD — ผ่านเกณฑ์มาตรฐาน';}
+  else if(score>=40){grade='C'; desc='NEEDS IMPROVEMENT — ควรปรับปรุง';}
+  return {score:Math.round(score), grade, desc, reachedFrac, hullFrac, safetyFrac, survivedRatio, s};
+}
+function renderResult(){
+  const r = goToResultCompute();
+  const badge = document.getElementById('gradeBadge');
+  badge.className = 'grade-badge grade-'+r.grade;
+  badge.textContent = r.grade;
+  document.getElementById('gradeTitle').textContent = (state.shipName||'UNNAMED VESSEL') + ' — Grade ' + r.grade;
+  document.getElementById('gradeDesc').textContent = r.desc + ' · SCORE ' + r.score + '/100';
+
+  const fuelUsed = trial.fuelMax - trial.fuel;
+  const missionStatus = trial.endReason==='arrived' ? 'สำเร็จ' : (trial.endReason==='broken' ? 'เรือหัก (Structural Failure)' : 'ไม่สำเร็จ');
+  document.getElementById('resultStats').innerHTML = `
+    <div class="rstat"><div class="lbl">ระยะทางที่เดินทางได้</div><div class="val">${trial.distance.toFixed(1)} nm</div></div>
+    <div class="rstat"><div class="lbl">เวลาที่เดินทาง</div><div class="val">${trial.ticks} min</div></div>
+    <div class="rstat"><div class="lbl">ความเร็วสูงสุด</div><div class="val">${trial.baseSpeed.toFixed(1)} kn</div></div>
+    <div class="rstat"><div class="lbl">Fuel Efficiency</div><div class="val">${(trial.distance/Math.max(fuelUsed,1)).toFixed(2)} nm/L</div></div>
+    <div class="rstat"><div class="lbl">Safety Score</div><div class="val">${state.safetyScore}%</div></div>
+    <div class="rstat"><div class="lbl">Hull Condition</div><div class="val">${Math.round(trial.hull)}%</div></div>
+    <div class="rstat"><div class="lbl">Events ผ่านได้ดี</div><div class="val">${trial.eventsSurvived}/${trial.eventsTotal}</div></div>
+    <div class="rstat"><div class="lbl">สถานะภารกิจ</div><div class="val">${missionStatus}</div></div>
+  `;
+
+  const reasons = [];
+  if(trial.endReason==='broken') reasons.push(`เรือมี Structural Stress สูงถึง ${r.s.structuralStress}% ทำให้โครงสร้างทนแรงปะทะจากสภาพอากาศไม่ไหวและหักกลางลำ`);
+  if(r.s.wrongZoneCount>0) reasons.push(`มีชิ้นส่วนวางผิดโซน ${r.s.wrongZoneCount} ชิ้น ทำให้ประสิทธิภาพโดยรวมลดลงตั้งแต่ต้น`);
+  if(r.s.unsupported>0) reasons.push(`ชิ้นส่วนหนัก ${r.s.unsupported} ชิ้นไม่มี Stabilizer รองรับใกล้ๆ กลายเป็นจุดอ่อนโครงสร้าง`);
+  if(r.s.disconnectedEngines>0) reasons.push(`Engine อยู่ไกลจาก Fuel Tank เกินระยะที่เหมาะสม ทำให้ fuel efficiency ลดลง`);
+  if(r.s.fuelAdequacy<50) reasons.push('ระยะทางถูกจำกัดเนื่องจาก Fuel Capacity ต่ำเกินไปเมื่อเทียบกับน้ำหนักเรือ');
+  if(r.s.stability<55) reasons.push('เรือได้รับ Damage สูงระหว่างเดินเรือ เนื่องจาก Stability ต่ำ ทำให้รับมือคลื่น/พายุได้ไม่ดี');
+  if(r.s.structural<50) reasons.push('Structural Integrity ต่ำ ทำให้ตัวเรือเสียหายง่ายเมื่อเจอเหตุการณ์รุนแรง');
+  if(trial.endReason==='arrived' && r.score>=74) reasons.push('การออกแบบสมดุลดีทั้งโซน การเชื่อมต่อ Stability และ Fuel ทำให้เดินทางถึงเป้าหมายได้อย่างมีประสิทธิภาพ');
+  if(reasons.length===0) reasons.push('ภาพรวมของเรือมีความสมดุลดี ไม่มีจุดอ่อนเด่นชัด');
+  document.getElementById('reasonList').innerHTML = reasons.map(x=>`<li>${x}</li>`).join('');
+}
+
+const _origGoTo = goTo;
+goTo = function(stageKey){
+  _origGoTo(stageKey);
+  if(stageKey==='result') renderResult();
+};
+
+function improveVessel(){ goTo('builder'); }
+function resetAll(){
+  if(!confirm('เริ่มต้นสร้างเรือใหม่ทั้งหมด? ข้อมูลปัจจุบันจะหายไป')) return;
+  state = {stage:'home', shipType:null, material:'steel', parts:[], shipName:'', safetyScore:0, approved:false, checks:{}, serverId:null};
+  trial=null;
+  currentProjectId = null;
+  if(currentUser){ goApp('dashboard'); } else { goTo('home'); }
+}
+
+/* ================= INIT ================= */
+renderStepper();
+renderAuthArea();
+refreshMe();
+</script>
+</body>
+</html>
